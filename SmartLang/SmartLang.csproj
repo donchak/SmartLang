@@ -15,4 +15,8 @@
     <ApplicationIcon>Assets\SmartLang.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmartLang.Tests" />
+  </ItemGroup>
+
 </Project>

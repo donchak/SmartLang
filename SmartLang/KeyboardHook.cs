@@ -108,9 +108,16 @@ public sealed class KeyboardHook : IDisposable
             }
         }).ToArray();
 
-        NativeMethods.SendInput(
+        var sent = NativeMethods.SendInput(
             checked((uint)inputs.Length),
             inputs,
             Marshal.SizeOf<NativeMethods.Input>());
+
+        if (sent != inputs.Length)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"SmartLang could not replay {inputs.Length - sent} keyboard event(s). " +
+                $"Win32 error: {Marshal.GetLastWin32Error()}.");
+        }
     }
 }

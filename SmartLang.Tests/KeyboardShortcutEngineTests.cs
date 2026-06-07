@@ -223,20 +223,78 @@ public sealed class KeyboardShortcutEngineTests
             isKeyDown: false).Suppress);
     }
 
-    [Fact]
-    public void ModifierTapIsReplayedAsDownAndUp()
+    [Theory]
+    [InlineData(KeyboardShortcutEngine.VkLShift)]
+    [InlineData(KeyboardShortcutEngine.VkRShift)]
+    [InlineData(KeyboardShortcutEngine.VkLControl)]
+    [InlineData(KeyboardShortcutEngine.VkRControl)]
+    [InlineData(KeyboardShortcutEngine.VkLWin)]
+    [InlineData(KeyboardShortcutEngine.VkRWin)]
+    public void SingleModifierTapIsReplayedAsDownAndUp(int modifier)
     {
         var engine = new KeyboardShortcutEngine();
 
-        engine.Process(KeyboardShortcutEngine.VkLShift, true);
-        var release = engine.Process(KeyboardShortcutEngine.VkLShift, false);
+        var press = engine.Process(modifier, true);
+        var release = engine.Process(modifier, false);
 
+        Assert.True(press.Suppress);
         Assert.True(release.Suppress);
+        Assert.Null(release.TriggeredShortcut);
         Assert.Equal(
             [
-                new SyntheticKeyEvent(KeyboardShortcutEngine.VkLShift, true),
-                new SyntheticKeyEvent(KeyboardShortcutEngine.VkLShift, false)
+                new SyntheticKeyEvent(modifier, true),
+                new SyntheticKeyEvent(modifier, false)
             ],
             release.ReplayEvents);
+    }
+
+    [Fact]
+    public void OrdinarySingleKeyPassesThroughUnchanged()
+    {
+        const int vkA = 0x41;
+        var engine = new KeyboardShortcutEngine();
+
+        var press = engine.Process(vkA, isKeyDown: true);
+        var release = engine.Process(vkA, isKeyDown: false);
+
+        Assert.False(press.Suppress);
+        Assert.False(release.Suppress);
+        Assert.Null(press.TriggeredShortcut);
+        Assert.Null(press.ReplayEvents);
+        Assert.Null(release.TriggeredShortcut);
+        Assert.Null(release.ReplayEvents);
+    }
+
+    [Fact]
+    public void EveryNonModifierVirtualKeyPassesThroughWhenPressedAlone()
+    {
+        HashSet<int> watchedModifiers =
+        [
+            KeyboardShortcutEngine.VkLShift,
+            KeyboardShortcutEngine.VkRShift,
+            KeyboardShortcutEngine.VkLControl,
+            KeyboardShortcutEngine.VkRControl,
+            KeyboardShortcutEngine.VkLWin,
+            KeyboardShortcutEngine.VkRWin
+        ];
+
+        for (var virtualKey = 1; virtualKey <= byte.MaxValue; virtualKey++)
+        {
+            if (watchedModifiers.Contains(virtualKey))
+            {
+                continue;
+            }
+
+            var engine = new KeyboardShortcutEngine();
+            var press = engine.Process(virtualKey, isKeyDown: true);
+            var release = engine.Process(virtualKey, isKeyDown: false);
+
+            Assert.False(press.Suppress);
+            Assert.False(release.Suppress);
+            Assert.Null(press.TriggeredShortcut);
+            Assert.Null(release.TriggeredShortcut);
+            Assert.Null(press.ReplayEvents);
+            Assert.Null(release.ReplayEvents);
+        }
     }
 }
