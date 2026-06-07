@@ -45,12 +45,68 @@ public sealed class KeyboardHook : IDisposable
             return;
         }
 
-        NativeMethods.UnhookWindowsHookEx(_hookHandle);
+        if (!NativeMethods.UnhookWindowsHookEx(_hookHandle))
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"SmartLang could not uninstall the keyboard hook. " +
+                $"Win32 error: {Marshal.GetLastWin32Error()}.");
+        }
+
         _hookHandle = 0;
         GC.SuppressFinalize(this);
     }
 
+    public void Refresh()
+    {
+        if (_hookHandle == 0)
+        {
+            return;
+        }
+
+        var previousHandle = _hookHandle;
+        var newHandle = NativeMethods.SetWindowsHookEx(
+            NativeMethods.WhKeyboardLl,
+            _callback,
+            NativeMethods.GetModuleHandle(null),
+            0);
+
+        if (newHandle == 0)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"SmartLang could not refresh the keyboard hook. " +
+                $"Win32 error: {Marshal.GetLastWin32Error()}.");
+            return;
+        }
+
+        _hookHandle = newHandle;
+
+        // Any key events during the gap (or before an eviction) were missed, so
+        // discard accumulated modifier state to avoid a stuck-modifier replay.
+        _engine.Reset();
+
+        if (!NativeMethods.UnhookWindowsHookEx(previousHandle))
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"SmartLang could not uninstall the previous keyboard hook during refresh. " +
+                $"Win32 error: {Marshal.GetLastWin32Error()}.");
+        }
+    }
+
     private nint HookCallback(int code, nint wParam, nint lParam)
+    {
+        try
+        {
+            return ProcessCallback(code, wParam, lParam);
+        }
+        catch (Exception exception)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"SmartLang keyboard hook callback threw {exception.GetType().Name}: {exception.Message}");
+            return NativeMethods.CallNextHookEx(_hookHandle, code, wParam, lParam);
+        }
+    }
+
+    private nint ProcessCallback(int code, nint wParam, nint lParam)
     {
         if (code < 0)
         {

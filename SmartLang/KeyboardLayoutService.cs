@@ -13,6 +13,8 @@ public sealed class KeyboardLayoutService
         _catalog = catalog;
     }
 
+    internal IReadOnlyDictionary<string, nint> RememberedLayouts => _lastLayouts;
+
     public bool TogglePrimaryLanguages(AppSettings settings)
     {
         var layouts = _catalog.GetInstalledLayouts();
@@ -59,7 +61,7 @@ public sealed class KeyboardLayoutService
         return targetIndex >= 0 && RequestLayout(targetWindow, layouts[targetIndex].Handle);
     }
 
-    private InstalledLayout? ResolveLayout(
+    internal InstalledLayout? ResolveLayout(
         string languageTag,
         IReadOnlyList<InstalledLayout> layouts)
     {
@@ -84,7 +86,7 @@ public sealed class KeyboardLayoutService
         return matchingLayouts[0];
     }
 
-    private void Remember(InstalledLayout? layout)
+    internal void Remember(InstalledLayout? layout)
     {
         if (layout is not null)
         {

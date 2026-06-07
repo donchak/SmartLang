@@ -10,6 +10,7 @@ public sealed class SmartLangApplicationContext : ApplicationContext
     private readonly Control _dispatcher = new();
     private readonly Icon _applicationIcon;
     private readonly NotifyIcon _notifyIcon;
+    private readonly System.Windows.Forms.Timer _hookRefreshTimer;
 
     private AppSettings _settings;
     private KeyboardHook? _keyboardHook;
@@ -40,6 +41,9 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         };
         _notifyIcon.DoubleClick += (_, _) => OpenSettings();
 
+        _hookRefreshTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
+        _hookRefreshTimer.Tick += (_, _) => _keyboardHook?.Refresh();
+
         _dispatcher.CreateControl();
         _singleInstance.StartListening(() => Dispatch(OpenSettings));
         _dispatcher.BeginInvoke(Initialize);
@@ -49,6 +53,8 @@ public sealed class SmartLangApplicationContext : ApplicationContext
     {
         if (disposing)
         {
+            _hookRefreshTimer.Stop();
+            _hookRefreshTimer.Dispose();
             _keyboardHook?.Dispose();
             _settingsForm?.Dispose();
             _notifyIcon.ContextMenuStrip?.Dispose();
@@ -128,8 +134,8 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
         try
         {
-            _startupManager.Apply(settings.StartWithWindows);
             _settingsStore.Save(settings);
+            _startupManager.Apply(settings.StartWithWindows);
         }
         catch (Exception exception) when (
             exception is UnauthorizedAccessException or IOException or InvalidOperationException)
@@ -156,9 +162,11 @@ public sealed class SmartLangApplicationContext : ApplicationContext
                 GetEnabledShortcuts(),
                 shortcut => Dispatch(() => HandleShortcut(shortcut)));
             _keyboardHook.Start();
+            _hookRefreshTimer.Start();
         }
         catch (Exception exception)
         {
+            _hookRefreshTimer.Stop();
             _keyboardHook?.Dispose();
             _keyboardHook = null;
             ShowNotification("Keyboard hook unavailable", exception.Message, ToolTipIcon.Error);
@@ -168,6 +176,7 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
     private void DisableKeyboardHook()
     {
+        _hookRefreshTimer.Stop();
         _keyboardHook?.Dispose();
         _keyboardHook = null;
     }

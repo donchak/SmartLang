@@ -59,7 +59,28 @@ public sealed class SettingsStore
 
         Directory.CreateDirectory(directory);
         var temporaryPath = FilePath + ".tmp";
-        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, JsonOptions));
-        File.Move(temporaryPath, FilePath, overwrite: true);
+        var moved = false;
+        try
+        {
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, JsonOptions));
+            File.Move(temporaryPath, FilePath, overwrite: true);
+            moved = true;
+        }
+        finally
+        {
+            if (!moved)
+            {
+                try
+                {
+                    File.Delete(temporaryPath);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
     }
 }

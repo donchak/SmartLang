@@ -63,6 +63,65 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(ShortcutKind.None, actual.AllLayoutsShortcut);
     }
 
+    [Fact]
+    public void OlderSchemaVersionReturnsDefaults()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "Version": 0,
+              "PrimaryLanguageTag": "en-US",
+              "SecondaryLanguageTag": "fr-FR",
+              "PrimaryShortcut": "CtrlShift",
+              "AllLayoutsShortcut": "WinSpace",
+              "StartWithWindows": true
+            }
+            """);
+
+        var settings = new SettingsStore(path).Load();
+
+        Assert.Equal(AppSettings.CurrentVersion, settings.Version);
+        Assert.Empty(settings.PrimaryLanguageTag);
+        Assert.Empty(settings.SecondaryLanguageTag);
+        Assert.False(settings.StartWithWindows);
+    }
+
+    [Fact]
+    public void NewerSchemaVersionReturnsDefaults()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "settings.json");
+        File.WriteAllText(path, """
+            {"Version": 999, "PrimaryLanguageTag": "en-US"}
+            """);
+
+        var settings = new SettingsStore(path).Load();
+
+        Assert.Equal(AppSettings.CurrentVersion, settings.Version);
+        Assert.Empty(settings.PrimaryLanguageTag);
+    }
+
+    [Fact]
+    public void SaveCleansUpTemporaryFileWhenMoveTargetIsLocked()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "settings.json");
+        var tempPath = path + ".tmp";
+
+        using (var lockStream = new FileStream(
+            path,
+            FileMode.Create,
+            FileAccess.ReadWrite,
+            FileShare.None))
+        {
+            Assert.ThrowsAny<Exception>(() =>
+                new SettingsStore(path).Save(new AppSettings()));
+        }
+
+        Assert.False(File.Exists(tempPath));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))

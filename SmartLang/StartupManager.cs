@@ -25,5 +25,5 @@ public sealed class StartupManager
     }
 
     public static string BuildCommand(string executablePath) =>
-        $"\"{executablePath}\" --startup";
+        $"\"{executablePath}\"";
 }

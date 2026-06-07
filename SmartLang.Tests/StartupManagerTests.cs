@@ -6,7 +6,7 @@ public sealed class StartupManagerTests
     public void StartupCommandQuotesExecutablePath()
     {
         Assert.Equal(
-            "\"C:\\Program Files\\SmartLang\\SmartLang.exe\" --startup",
+            "\"C:\\Program Files\\SmartLang\\SmartLang.exe\"",
             StartupManager.BuildCommand(
                 "C:\\Program Files\\SmartLang\\SmartLang.exe"));
     }

@@ -35,6 +35,14 @@ public sealed class KeyboardShortcutEngine
         _winSpaceEnabled = shortcuts.Contains(ShortcutKind.WinSpace);
     }
 
+    public void Reset()
+    {
+        _physicallyDown.Clear();
+        _bufferedModifiers.Clear();
+        _replayedModifiers.Clear();
+        _consumedKeys.Clear();
+    }
+
     public ShortcutProcessingResult Process(int virtualKey, bool isKeyDown, bool isInjected = false)
     {
         if (isInjected)

@@ -14,6 +14,7 @@ static class Program
             return;
         }
 
-        Application.Run(new SmartLangApplicationContext(singleInstance));
+        using var context = new SmartLangApplicationContext(singleInstance);
+        Application.Run(context);
     }
 }

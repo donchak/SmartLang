@@ -249,6 +249,32 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
+    public void ResetClearsStuckModifierAfterMissedKeyUp()
+    {
+        const int vkA = 0x41;
+        var engine = new KeyboardShortcutEngine();
+
+        // Control is pressed and buffered, but its key-up is never delivered
+        // (e.g. the low-level hook was evicted mid-chord by Windows).
+        Assert.True(engine.Process(
+            KeyboardShortcutEngine.VkLControl,
+            isKeyDown: true).Suppress);
+
+        // Reinstalling the hook resets the engine, so the stuck modifier is
+        // forgotten rather than corrupting the next keystroke.
+        engine.Reset();
+
+        var press = engine.Process(vkA, isKeyDown: true);
+        Assert.False(press.Suppress);
+        Assert.Null(press.ReplayEvents);
+        Assert.Null(press.TriggeredShortcut);
+
+        var release = engine.Process(vkA, isKeyDown: false);
+        Assert.False(release.Suppress);
+        Assert.Null(release.ReplayEvents);
+    }
+
+    [Fact]
     public void OrdinarySingleKeyPassesThroughUnchanged()
     {
         const int vkA = 0x41;
