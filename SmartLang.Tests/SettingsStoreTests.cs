@@ -45,6 +45,24 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Empty(settings.SecondaryLanguageTag);
     }
 
+    [Fact]
+    public void NoneAllLayoutsShortcutRoundTrips()
+    {
+        var path = Path.Combine(_directory, "settings.json");
+        var store = new SettingsStore(path);
+        var expected = new AppSettings
+        {
+            PrimaryLanguageTag = "en-US",
+            SecondaryLanguageTag = "fr-FR",
+            AllLayoutsShortcut = ShortcutKind.None
+        };
+
+        store.Save(expected);
+        var actual = store.Load();
+
+        Assert.Equal(ShortcutKind.None, actual.AllLayoutsShortcut);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))

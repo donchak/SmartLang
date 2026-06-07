@@ -23,7 +23,13 @@ public static class SettingsValidator
             return "The two primary languages must be different.";
         }
 
-        if (settings.PrimaryShortcut == settings.AllLayoutsShortcut)
+        if (settings.PrimaryShortcut == ShortcutKind.None)
+        {
+            return "Select a shortcut for switching primary languages.";
+        }
+
+        if (settings.AllLayoutsShortcut != ShortcutKind.None &&
+            settings.PrimaryShortcut == settings.AllLayoutsShortcut)
         {
             return "The two commands must use different shortcuts.";
         }

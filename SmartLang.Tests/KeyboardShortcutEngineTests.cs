@@ -179,6 +179,51 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
+    public void DisabledWinSpacePassesThroughUnchanged()
+    {
+        var engine = new KeyboardShortcutEngine([ShortcutKind.CtrlShift]);
+
+        var windowsDown = engine.Process(
+            KeyboardShortcutEngine.VkLWin,
+            isKeyDown: true);
+        var spaceDown = engine.Process(
+            KeyboardShortcutEngine.VkSpace,
+            isKeyDown: true);
+        var spaceUp = engine.Process(
+            KeyboardShortcutEngine.VkSpace,
+            isKeyDown: false);
+        var windowsUp = engine.Process(
+            KeyboardShortcutEngine.VkLWin,
+            isKeyDown: false);
+
+        Assert.False(windowsDown.Suppress);
+        Assert.False(spaceDown.Suppress);
+        Assert.False(spaceUp.Suppress);
+        Assert.False(windowsUp.Suppress);
+        Assert.Null(spaceDown.TriggeredShortcut);
+        Assert.Null(spaceDown.ReplayEvents);
+    }
+
+    [Fact]
+    public void DisabledCtrlShiftPassesThroughUnchanged()
+    {
+        var engine = new KeyboardShortcutEngine([ShortcutKind.WinSpace]);
+
+        Assert.False(engine.Process(
+            KeyboardShortcutEngine.VkLControl,
+            isKeyDown: true).Suppress);
+        Assert.False(engine.Process(
+            KeyboardShortcutEngine.VkLShift,
+            isKeyDown: true).Suppress);
+        Assert.False(engine.Process(
+            KeyboardShortcutEngine.VkLShift,
+            isKeyDown: false).Suppress);
+        Assert.False(engine.Process(
+            KeyboardShortcutEngine.VkLControl,
+            isKeyDown: false).Suppress);
+    }
+
+    [Fact]
     public void ModifierTapIsReplayedAsDownAndUp()
     {
         var engine = new KeyboardShortcutEngine();

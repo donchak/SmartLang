@@ -24,6 +24,16 @@ public sealed class KeyboardShortcutEngine
     private readonly List<int> _bufferedModifiers = [];
     private readonly HashSet<int> _replayedModifiers = [];
     private readonly HashSet<int> _consumedKeys = [];
+    private readonly bool _ctrlShiftEnabled;
+    private readonly bool _winSpaceEnabled;
+
+    public KeyboardShortcutEngine(IEnumerable<ShortcutKind>? enabledShortcuts = null)
+    {
+        var shortcuts = enabledShortcuts?.ToHashSet() ??
+            [ShortcutKind.CtrlShift, ShortcutKind.WinSpace];
+        _ctrlShiftEnabled = shortcuts.Contains(ShortcutKind.CtrlShift);
+        _winSpaceEnabled = shortcuts.Contains(ShortcutKind.WinSpace);
+    }
 
     public ShortcutProcessingResult Process(int virtualKey, bool isKeyDown, bool isInjected = false)
     {
@@ -59,7 +69,7 @@ public sealed class KeyboardShortcutEngine
                 : ShortcutProcessingResult.Pass;
         }
 
-        if (IsPotentialModifier(virtualKey))
+        if (IsWatchedModifier(virtualKey))
         {
             return isKeyDown
                 ? ProcessModifierDown(virtualKey)
@@ -72,6 +82,7 @@ public sealed class KeyboardShortcutEngine
         }
 
         if (isKeyDown &&
+            _winSpaceEnabled &&
             virtualKey == VkSpace &&
             IsWinOnlyBuffer())
         {
@@ -101,7 +112,7 @@ public sealed class KeyboardShortcutEngine
         }
 
         if (_bufferedModifiers.Count == 0 &&
-            _physicallyDown.Any(key => key != virtualKey && !IsPotentialModifier(key)))
+            _physicallyDown.Any(key => key != virtualKey && !IsWatchedModifier(key)))
         {
             return ShortcutProcessingResult.Pass;
         }
@@ -129,7 +140,7 @@ public sealed class KeyboardShortcutEngine
             return ShortcutProcessingResult.Pass;
         }
 
-        if (IsCtrlShiftBuffer())
+        if (_ctrlShiftEnabled && IsCtrlShiftBuffer())
         {
             foreach (var key in _bufferedModifiers)
             {
@@ -184,7 +195,7 @@ public sealed class KeyboardShortcutEngine
         foreach (var key in _consumedKeys)
         {
             if (_physicallyDown.Contains(key) &&
-                IsPotentialModifier(key) &&
+                IsWatchedModifier(key) &&
                 !_bufferedModifiers.Contains(key))
             {
                 _bufferedModifiers.Add(key);
@@ -212,8 +223,9 @@ public sealed class KeyboardShortcutEngine
         _bufferedModifiers.Any(IsShift) &&
         !_bufferedModifiers.Any(IsWin);
 
-    private static bool IsPotentialModifier(int key) =>
-        IsControl(key) || IsShift(key) || IsWin(key);
+    private bool IsWatchedModifier(int key) =>
+        (_ctrlShiftEnabled && (IsControl(key) || IsShift(key))) ||
+        (_winSpaceEnabled && IsWin(key));
 
     private static bool IsControl(int key) => key is VkLControl or VkRControl;
 

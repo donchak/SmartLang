@@ -33,6 +33,8 @@ The application icon source is
 - First launch opens Settings; later launches start in the tray.
 - `Ctrl+Shift` and `Win+Space` can be assigned to either primary-language
   toggling or cycling all installed layouts.
+- Cycling all layouts can be set to `None`, leaving only the primary-language
+  shortcut active.
 - Closing Settings hides it. Use the tray menu's `Exit` command to stop the app.
 - Settings are stored in `%LocalAppData%\SmartLang\settings.json`.
 - Start-at-sign-in uses the current user's Windows `Run` registry key.

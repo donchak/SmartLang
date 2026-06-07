@@ -138,6 +138,7 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         }
 
         _settings = settings.Copy();
+        DisableKeyboardHook();
         EnableKeyboardHook();
         return null;
     }
@@ -151,8 +152,9 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
         try
         {
-            _keyboardHook = new KeyboardHook(shortcut =>
-                Dispatch(() => HandleShortcut(shortcut)));
+            _keyboardHook = new KeyboardHook(
+                GetEnabledShortcuts(),
+                shortcut => Dispatch(() => HandleShortcut(shortcut)));
             _keyboardHook.Start();
         }
         catch (Exception exception)
@@ -186,7 +188,8 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         {
             switched = _keyboardLayoutService.TogglePrimaryLanguages(_settings);
         }
-        else if (shortcut == _settings.AllLayoutsShortcut)
+        else if (_settings.AllLayoutsShortcut != ShortcutKind.None &&
+            shortcut == _settings.AllLayoutsShortcut)
         {
             switched = _keyboardLayoutService.CycleAllLayouts();
         }
@@ -206,6 +209,17 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
     private string? GetValidationMessage() =>
         SettingsValidator.Validate(_settings, _languageCatalog.GetLanguageOptions());
+
+    private IReadOnlyCollection<ShortcutKind> GetEnabledShortcuts()
+    {
+        var shortcuts = new HashSet<ShortcutKind> { _settings.PrimaryShortcut };
+        if (_settings.AllLayoutsShortcut != ShortcutKind.None)
+        {
+            shortcuts.Add(_settings.AllLayoutsShortcut);
+        }
+
+        return shortcuts;
+    }
 
     private void ShowNotification(string title, string text, ToolTipIcon icon)
     {

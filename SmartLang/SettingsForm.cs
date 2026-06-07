@@ -30,14 +30,20 @@ public sealed class SettingsForm : Form
         ConfigureCombo(_primaryShortcut);
         ConfigureCombo(_allLayoutsShortcut);
 
-        var shortcutOptions = new[]
+        var primaryShortcutOptions = new[]
         {
             new ShortcutOption(ShortcutKind.CtrlShift, "Ctrl + Shift"),
             new ShortcutOption(ShortcutKind.WinSpace, "Win + Space")
         };
-        _primaryShortcut.DataSource = shortcutOptions.ToArray();
+        var allLayoutsShortcutOptions = new[]
+        {
+            new ShortcutOption(ShortcutKind.None, "None"),
+            new ShortcutOption(ShortcutKind.CtrlShift, "Ctrl + Shift"),
+            new ShortcutOption(ShortcutKind.WinSpace, "Win + Space")
+        };
+        _primaryShortcut.DataSource = primaryShortcutOptions;
         _primaryShortcut.DisplayMember = nameof(ShortcutOption.DisplayName);
-        _allLayoutsShortcut.DataSource = shortcutOptions.ToArray();
+        _allLayoutsShortcut.DataSource = allLayoutsShortcutOptions;
         _allLayoutsShortcut.DisplayMember = nameof(ShortcutOption.DisplayName);
 
         _startWithWindows.Text = "Start SmartLang when I sign in to Windows";

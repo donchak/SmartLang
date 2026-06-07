@@ -5,13 +5,16 @@ namespace SmartLang;
 
 public sealed class KeyboardHook : IDisposable
 {
-    private readonly KeyboardShortcutEngine _engine = new();
+    private readonly KeyboardShortcutEngine _engine;
     private readonly Action<ShortcutKind> _shortcutTriggered;
     private readonly NativeMethods.LowLevelKeyboardProc _callback;
     private nint _hookHandle;
 
-    public KeyboardHook(Action<ShortcutKind> shortcutTriggered)
+    public KeyboardHook(
+        IEnumerable<ShortcutKind> enabledShortcuts,
+        Action<ShortcutKind> shortcutTriggered)
     {
+        _engine = new KeyboardShortcutEngine(enabledShortcuts);
         _shortcutTriggered = shortcutTriggered;
         _callback = HookCallback;
     }

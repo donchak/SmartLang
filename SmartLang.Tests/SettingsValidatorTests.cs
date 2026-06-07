@@ -37,6 +37,26 @@ public sealed class SettingsValidatorTests
     }
 
     [Fact]
+    public void NoneIsAcceptedForAllLayoutsShortcut()
+    {
+        var settings = CreateValidSettings();
+        settings.AllLayoutsShortcut = ShortcutKind.None;
+
+        Assert.Null(SettingsValidator.Validate(settings, Languages));
+    }
+
+    [Fact]
+    public void NoneIsRejectedForPrimaryShortcut()
+    {
+        var settings = CreateValidSettings();
+        settings.PrimaryShortcut = ShortcutKind.None;
+
+        Assert.Equal(
+            "Select a shortcut for switching primary languages.",
+            SettingsValidator.Validate(settings, Languages));
+    }
+
+    [Fact]
     public void RemovedLanguageIsRejected()
     {
         var settings = CreateValidSettings();
