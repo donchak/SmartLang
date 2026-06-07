@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="SmartLang.Tests/SmartLang.Tests.csproj" />
+  <Project Path="SmartLang/SmartLang.csproj" />
+</Solution>
