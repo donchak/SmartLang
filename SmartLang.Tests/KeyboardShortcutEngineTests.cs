@@ -128,6 +128,56 @@ public sealed class KeyboardShortcutEngineTests
         Assert.True(engine.Process(windowsKey, false).Suppress);
     }
 
+    [Theory]
+    [InlineData(KeyboardShortcutEngine.VkLWin)]
+    [InlineData(KeyboardShortcutEngine.VkRWin)]
+    public void SpaceCanTriggerRepeatedlyWhileWindowsKeyRemainsHeld(int windowsKey)
+    {
+        var engine = new KeyboardShortcutEngine();
+
+        engine.Process(windowsKey, isKeyDown: true);
+        Assert.Equal(
+            ShortcutKind.WinSpace,
+            engine.Process(
+                KeyboardShortcutEngine.VkSpace,
+                isKeyDown: true).TriggeredShortcut);
+        Assert.True(engine.Process(
+            KeyboardShortcutEngine.VkSpace,
+            isKeyDown: false).Suppress);
+
+        var secondTrigger = engine.Process(
+            KeyboardShortcutEngine.VkSpace,
+            isKeyDown: true);
+
+        Assert.True(secondTrigger.Suppress);
+        Assert.Equal(ShortcutKind.WinSpace, secondTrigger.TriggeredShortcut);
+        Assert.True(engine.Process(
+            KeyboardShortcutEngine.VkSpace,
+            isKeyDown: false).Suppress);
+        Assert.True(engine.Process(windowsKey, isKeyDown: false).Suppress);
+    }
+
+    [Fact]
+    public void HeldConsumedModifierIsReplayedBeforeAnotherKey()
+    {
+        const int vkE = 0x45;
+        var engine = new KeyboardShortcutEngine();
+
+        engine.Process(KeyboardShortcutEngine.VkLWin, isKeyDown: true);
+        engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: true);
+        engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: false);
+
+        var keyDown = engine.Process(vkE, isKeyDown: true);
+
+        Assert.False(keyDown.Suppress);
+        Assert.Equal(
+            [new SyntheticKeyEvent(KeyboardShortcutEngine.VkLWin, true)],
+            keyDown.ReplayEvents);
+        Assert.False(engine.Process(
+            KeyboardShortcutEngine.VkLWin,
+            isKeyDown: false).Suppress);
+    }
+
     [Fact]
     public void ModifierTapIsReplayedAsDownAndUp()
     {

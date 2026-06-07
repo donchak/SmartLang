@@ -66,6 +66,11 @@ public sealed class KeyboardShortcutEngine
                 : ProcessModifierUp(virtualKey);
         }
 
+        if (isKeyDown)
+        {
+            SeedHeldConsumedModifiers();
+        }
+
         if (isKeyDown &&
             virtualKey == VkSpace &&
             IsWinOnlyBuffer())
@@ -165,6 +170,7 @@ public sealed class KeyboardShortcutEngine
         {
             if (_physicallyDown.Contains(key))
             {
+                _consumedKeys.Remove(key);
                 _replayedModifiers.Add(key);
             }
         }
