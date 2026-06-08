@@ -3,5 +3,7 @@
 .vs/
 TestResults/
 artifacts/
+SmartLang.NativeHook/bin/
+.tmp-explorerpatcher/
 *.user
 *.suo

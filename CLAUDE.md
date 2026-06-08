@@ -28,7 +28,7 @@ Produce the self-contained, single-file executable at `artifacts\publish\SmartLa
 dotnet publish SmartLang\SmartLang.csproj -c Release -o artifacts\publish
 ```
 
-The app project sets `PublishSingleFile=true`, `SelfContained=true`, `PublishTrimmed=false`. Do not enable trimming — WinForms / reflection-heavy code paths are not trim-safe here. Do not add a manifest that requests admin: Windows silently drops `WM_INPUTLANGCHANGEREQUEST` to elevated targets, so the app must stay non-elevated.
+The app project sets `PublishSingleFile=true`, `SelfContained=true`, `PublishTrimmed=false`. Do not enable trimming — WinForms / reflection-heavy code paths are not trim-safe here. Do not add a manifest that requests admin; the app is designed to run non-elevated.
 
 ## Architecture
 
@@ -39,7 +39,8 @@ Composition root is `SmartLangApplicationContext` (constructed from `Program.Mai
 - `SettingsValidator` — pure validation; always run results through it before enabling the hook or saving.
 - `StartupManager` — toggles the per-user `Run` registry key for start-at-sign-in.
 - `LanguageCatalog` — enumerates installed Windows keyboard layouts / languages.
-- `KeyboardLayoutService` — performs the actual layout switch against the foreground window via `PostMessage(WM_INPUTLANGCHANGEREQUEST)`. Uses `GetGUIThreadInfo` to target the focused child window and remembers the last-used layout per language tag so toggling restores the user's preferred variant.
+- `KeyboardLayoutService` — selects the target layout and delegates activation to `NativeInputProfileActivator`. It remembers the last-used layout per language tag so toggling restores the user's preferred variant.
+- `SmartLang.NativeHook` — a small x64 native `WH_GETMESSAGE` hook. SmartLang posts a private thread message to the foreground UI thread; the hook consumes it before the application sees it and calls `ActivateKeyboardLayout` in that thread. Do not switch layouts by posting `WM_INPUTLANGCHANGEREQUEST`, using TSF from the SmartLang thread, or emulating `Win+Space`; those approaches either affect the wrong thread or hang/misbehave in applications such as Visual Studio.
 - `KeyboardHook` + `KeyboardShortcutEngine` — `KeyboardHook` installs a `WH_KEYBOARD_LL` low-level hook; `KeyboardShortcutEngine` is the pure state machine that decides when `Ctrl+Shift` / `Win+Space` should fire and whether to suppress the key. **All shortcut logic belongs in `KeyboardShortcutEngine` so it stays unit-testable** — the hook should remain a thin Win32 shim.
 - `SettingsForm` — the only UI. Closing it hides it; the tray menu's `Exit` is the only way to terminate.
 

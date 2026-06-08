@@ -9,8 +9,7 @@ internal static class NativeMethods
     internal const int WmKeyUp = 0x0101;
     internal const int WmSysKeyDown = 0x0104;
     internal const int WmSysKeyUp = 0x0105;
-    internal const int WmInputLangChangeRequest = 0x0050;
-    internal const int InputLangChangeForward = 0x0002;
+    internal const uint WmApp = 0x8000;
 
     internal const uint LlkhfInjected = 0x00000010;
     internal const uint LlkhfLowerIlInjected = 0x00000002;
@@ -27,6 +26,13 @@ internal static class NativeMethods
         nint moduleHandle,
         uint threadId);
 
+    [DllImport("user32.dll", SetLastError = true, EntryPoint = "SetWindowsHookExW")]
+    internal static extern nint SetWindowsHookEx(
+        int hookId,
+        nint callback,
+        nint moduleHandle,
+        uint threadId);
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool UnhookWindowsHookEx(nint hookHandle);
@@ -40,6 +46,24 @@ internal static class NativeMethods
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     internal static extern nint GetModuleHandle(string? moduleName);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    internal static extern nint LoadLibrary(string fileName);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+    internal static extern nint GetProcAddress(nint moduleHandle, string procedureName);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool FreeLibrary(nint moduleHandle);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool PostThreadMessage(
+        uint threadId,
+        uint message,
+        nint wParam,
+        nint lParam);
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern uint SendInput(
@@ -59,14 +83,6 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool PostMessage(
-        nint windowHandle,
-        uint message,
-        nint wParam,
-        nint lParam);
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct KeyboardHookData

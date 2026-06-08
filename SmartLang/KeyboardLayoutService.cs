@@ -2,15 +2,24 @@ using System.Runtime.InteropServices;
 
 namespace SmartLang;
 
-public sealed class KeyboardLayoutService
+public sealed class KeyboardLayoutService : IDisposable
 {
     private readonly LanguageCatalog _catalog;
+    private readonly IInputProfileActivator _profileActivator;
     private readonly Dictionary<string, nint> _lastLayouts =
         new(StringComparer.OrdinalIgnoreCase);
 
     public KeyboardLayoutService(LanguageCatalog catalog)
+        : this(catalog, new NativeInputProfileActivator())
+    {
+    }
+
+    internal KeyboardLayoutService(
+        LanguageCatalog catalog,
+        IInputProfileActivator profileActivator)
     {
         _catalog = catalog;
+        _profileActivator = profileActivator;
     }
 
     internal IReadOnlyDictionary<string, nint> RememberedLayouts => _lastLayouts;
@@ -18,8 +27,9 @@ public sealed class KeyboardLayoutService
     public bool TogglePrimaryLanguages(AppSettings settings)
     {
         var layouts = _catalog.GetInstalledLayouts();
-        if (!TryGetForegroundTarget(out var targetWindow, out var threadId))
+        if (!TryGetForegroundThread(out var threadId))
         {
+            AppLog.Write("Primary switch failed: no foreground input thread.");
             return false;
         }
 
@@ -33,15 +43,25 @@ public sealed class KeyboardLayoutService
             settings.SecondaryLanguageTag);
 
         var targetLayout = ResolveLayout(targetLanguage, layouts);
-        return targetLayout is not null && RequestLayout(targetWindow, targetLayout.Handle);
+        if (targetLayout is null)
+        {
+            AppLog.Write($"Primary switch failed: no layout for {targetLanguage}.");
+            return false;
+        }
+
+        AppLog.Write(
+            $"Primary switch: thread={threadId}, current=0x{currentHandle:X}, " +
+            $"target=0x{targetLayout.Handle:X} ({targetLanguage}).");
+        return ActivateLayout(threadId, currentHandle, targetLayout.Handle);
     }
 
     public bool CycleAllLayouts()
     {
         var layouts = _catalog.GetInstalledLayouts();
         if (layouts.Count == 0 ||
-            !TryGetForegroundTarget(out var targetWindow, out var threadId))
+            !TryGetForegroundThread(out var threadId))
         {
+            AppLog.Write("Cycle switch failed: no layouts or foreground input thread.");
             return false;
         }
 
@@ -58,7 +78,15 @@ public sealed class KeyboardLayoutService
         }
 
         var targetIndex = LanguageSwitchPolicy.GetNextLayoutIndex(currentIndex, layouts.Count);
-        return targetIndex >= 0 && RequestLayout(targetWindow, layouts[targetIndex].Handle);
+        if (targetIndex >= 0)
+        {
+            AppLog.Write(
+                $"Cycle switch: thread={threadId}, current=0x{currentHandle:X}, " +
+                $"target=0x{layouts[targetIndex].Handle:X}.");
+        }
+
+        return targetIndex >= 0 &&
+            ActivateLayout(threadId, currentHandle, layouts[targetIndex].Handle);
     }
 
     internal InstalledLayout? ResolveLayout(
@@ -94,12 +122,21 @@ public sealed class KeyboardLayoutService
         }
     }
 
-    private static bool TryGetForegroundTarget(out nint targetWindow, out uint threadId)
+    internal bool ActivateLayout(
+        uint threadId,
+        nint currentHandle,
+        nint targetHandle) =>
+        currentHandle == targetHandle ||
+        _profileActivator.ActivateKeyboardLayout(threadId, targetHandle);
+
+    public void Dispose() => _profileActivator.Dispose();
+
+    private static bool TryGetForegroundThread(out uint threadId)
     {
-        targetWindow = NativeMethods.GetForegroundWindow();
-        threadId = targetWindow == 0
+        var foregroundWindow = NativeMethods.GetForegroundWindow();
+        threadId = foregroundWindow == 0
             ? 0
-            : NativeMethods.GetWindowThreadProcessId(targetWindow, out _);
+            : NativeMethods.GetWindowThreadProcessId(foregroundWindow, out _);
 
         var info = new NativeMethods.GuiThreadInfo
         {
@@ -118,13 +155,6 @@ public sealed class KeyboardLayoutService
             }
         }
 
-        return targetWindow != 0 && threadId != 0;
+        return foregroundWindow != 0 && threadId != 0;
     }
-
-    private static bool RequestLayout(nint targetWindow, nint layoutHandle) =>
-        NativeMethods.PostMessage(
-            targetWindow,
-            NativeMethods.WmInputLangChangeRequest,
-            NativeMethods.InputLangChangeForward,
-            layoutHandle);
 }

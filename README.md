@@ -39,5 +39,7 @@ The application icon source is
 - Settings are stored in `%LocalAppData%\SmartLang\settings.json`.
 - Start-at-sign-in uses the current user's Windows `Run` registry key.
 
-SmartLang runs without elevation. Windows may reject layout-change messages
-sent to an elevated application or a secure desktop.
+SmartLang uses a small native hook helper to activate the layout inside the
+foreground application's input thread. It does not send layout-change window
+messages or emulate the Windows layout shortcut.
+Running it as administrator is neither required nor recommended.

@@ -103,4 +103,64 @@ public sealed class KeyboardLayoutServiceTests
 
         Assert.Equal((nint)21, resolved!.Handle);
     }
+
+    [Fact]
+    public void ActivateLayoutUsesExactTargetHandle()
+    {
+        var activator = new RecordingInputProfileActivator();
+        var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
+
+        var result = service.ActivateLayout(123, (nint)10, (nint)20);
+
+        Assert.True(result);
+        Assert.Equal(123u, activator.ThreadId);
+        Assert.Equal((nint)20, activator.ActivatedHandle);
+    }
+
+    [Fact]
+    public void ActivateLayoutDoesNothingWhenTargetIsAlreadyActive()
+    {
+        var activator = new RecordingInputProfileActivator();
+        var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
+
+        var result = service.ActivateLayout(123, (nint)20, (nint)20);
+
+        Assert.True(result);
+        Assert.Null(activator.ActivatedHandle);
+    }
+
+    [Fact]
+    public void ActivateLayoutReturnsActivatorFailure()
+    {
+        var activator = new RecordingInputProfileActivator
+        {
+            Result = false
+        };
+        var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
+
+        var result = service.ActivateLayout(123, (nint)10, (nint)20);
+
+        Assert.False(result);
+        Assert.Equal((nint)20, activator.ActivatedHandle);
+    }
+
+    private sealed class RecordingInputProfileActivator : IInputProfileActivator
+    {
+        public bool Result { get; init; } = true;
+
+        public nint? ActivatedHandle { get; private set; }
+
+        public uint? ThreadId { get; private set; }
+
+        public bool ActivateKeyboardLayout(uint threadId, nint layoutHandle)
+        {
+            ThreadId = threadId;
+            ActivatedHandle = layoutHandle;
+            return Result;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
 }

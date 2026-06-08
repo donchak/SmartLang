@@ -36,6 +36,8 @@ public sealed class KeyboardHook : IDisposable
         {
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not install the keyboard hook.");
         }
+
+        AppLog.Write($"Keyboard hook installed. Handle=0x{_hookHandle:X}.");
     }
 
     public void Dispose()
@@ -137,6 +139,7 @@ public sealed class KeyboardHook : IDisposable
 
         if (result.TriggeredShortcut is { } shortcut)
         {
+            AppLog.Write($"Keyboard hook recognized {shortcut}.");
             _shortcutTriggered(shortcut);
         }
 

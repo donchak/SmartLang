@@ -56,6 +56,7 @@ public sealed class SmartLangApplicationContext : ApplicationContext
             _hookRefreshTimer.Stop();
             _hookRefreshTimer.Dispose();
             _keyboardHook?.Dispose();
+            _keyboardLayoutService.Dispose();
             _settingsForm?.Dispose();
             _notifyIcon.ContextMenuStrip?.Dispose();
             _notifyIcon.Dispose();
@@ -68,6 +69,10 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
     private void Initialize()
     {
+        AppLog.Write(
+            $"Initializing. Primary={_settings.PrimaryLanguageTag}/{_settings.SecondaryLanguageTag}, " +
+            $"shortcuts={_settings.PrimaryShortcut}/{_settings.AllLayoutsShortcut}.");
+
         try
         {
             _startupManager.Apply(_settings.StartWithWindows);
@@ -183,6 +188,23 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
     private void HandleShortcut(ShortcutKind shortcut)
     {
+        try
+        {
+            HandleShortcutCore(shortcut);
+        }
+        catch (Exception exception)
+        {
+            AppLog.Write(
+                $"Shortcut {shortcut} failed with {exception.GetType().Name}: {exception.Message}");
+            ShowNotification(
+                "Language switch failed",
+                $"Unexpected error. Details were written to {AppLog.FilePath}.",
+                ToolTipIcon.Error);
+        }
+    }
+
+    private void HandleShortcutCore(ShortcutKind shortcut)
+    {
         var validationMessage = GetValidationMessage();
         if (validationMessage is not null)
         {
@@ -209,10 +231,15 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
         if (!switched)
         {
+            AppLog.Write($"Shortcut {shortcut} did not change the active layout.");
             ShowNotification(
                 "Language switch failed",
-                "Windows did not accept the layout change for the active application.",
+                $"Windows did not accept the layout change. Details were written to {AppLog.FilePath}.",
                 ToolTipIcon.Warning);
+        }
+        else
+        {
+            AppLog.Write($"Shortcut {shortcut} completed.");
         }
     }
 

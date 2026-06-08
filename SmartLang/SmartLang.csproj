@@ -19,4 +19,41 @@
     <InternalsVisibleTo Include="SmartLang.Tests" />
   </ItemGroup>
 
+  <Target Name="BuildNativeHook" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <NativeHookProject>$(MSBuildProjectDirectory)\..\SmartLang.NativeHook\SmartLang.NativeHook.vcxproj</NativeHookProject>
+      <NativeHookConfiguration Condition="'$(Configuration)' == 'Debug'">Debug</NativeHookConfiguration>
+      <NativeHookConfiguration Condition="'$(NativeHookConfiguration)' == ''">Release</NativeHookConfiguration>
+      <VsWherePath>$([System.Environment]::GetEnvironmentVariable("ProgramFiles(x86)"))\Microsoft Visual Studio\Installer\vswhere.exe</VsWherePath>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(VsWherePath)')"
+           Text="vswhere.exe not found at '$(VsWherePath)'. Install Visual Studio 2022 (or VS Build Tools 2022) with the 'Desktop development with C++' workload to build SmartLang.NativeHook." />
+
+    <Exec Command="&quot;$(VsWherePath)&quot; -latest -products Microsoft.VisualStudio.Product.Enterprise Microsoft.VisualStudio.Product.Professional Microsoft.VisualStudio.Product.Community Microsoft.VisualStudio.Product.BuildTools -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find MSBuild\**\Bin\MSBuild.exe"
+          ConsoleToMsBuild="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="NativeHookMsBuildPath" />
+    </Exec>
+
+    <Error Condition="'$(NativeHookMsBuildPath)' == ''"
+           Text="vswhere could not locate an MSBuild.exe. Install Visual Studio 2022 (or VS Build Tools 2022) with the 'Desktop development with C++' workload." />
+
+    <Exec Command="&quot;$(NativeHookMsBuildPath)&quot; &quot;$(NativeHookProject)&quot; /nologo /v:minimal /p:Configuration=$(NativeHookConfiguration) /p:Platform=x64" />
+    <Exec Command="&quot;$(NativeHookMsBuildPath)&quot; &quot;$(NativeHookProject)&quot; /nologo /v:minimal /p:Configuration=$(NativeHookConfiguration) /p:Platform=Win32" />
+  </Target>
+
+  <ItemGroup>
+    <None Include="..\SmartLang.NativeHook\bin\SmartLang.NativeHook.dll"
+          Link="SmartLang.NativeHook.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="..\SmartLang.NativeHook\bin\SmartLang.NativeHook32.dll"
+          Link="SmartLang.NativeHook32.dll"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+  </ItemGroup>
+
 </Project>
