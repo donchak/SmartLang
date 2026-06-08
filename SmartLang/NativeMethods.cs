@@ -10,6 +10,7 @@ internal static class NativeMethods
     internal const int WmSysKeyDown = 0x0104;
     internal const int WmSysKeyUp = 0x0105;
     internal const int WmInputLangChangeRequest = 0x0050;
+    internal const int InputLangChangeForward = 0x0002;
 
     internal const uint LlkhfInjected = 0x00000010;
     internal const uint LlkhfLowerIlInjected = 0x00000002;

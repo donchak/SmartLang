@@ -18,7 +18,7 @@ public sealed class KeyboardLayoutService
     public bool TogglePrimaryLanguages(AppSettings settings)
     {
         var layouts = _catalog.GetInstalledLayouts();
-        if (!TryGetTargetWindow(out var targetWindow, out var threadId))
+        if (!TryGetForegroundTarget(out var targetWindow, out var threadId))
         {
             return false;
         }
@@ -40,7 +40,7 @@ public sealed class KeyboardLayoutService
     {
         var layouts = _catalog.GetInstalledLayouts();
         if (layouts.Count == 0 ||
-            !TryGetTargetWindow(out var targetWindow, out var threadId))
+            !TryGetForegroundTarget(out var targetWindow, out var threadId))
         {
             return false;
         }
@@ -94,39 +94,37 @@ public sealed class KeyboardLayoutService
         }
     }
 
-    private static bool TryGetTargetWindow(out nint targetWindow, out uint threadId)
+    private static bool TryGetForegroundTarget(out nint targetWindow, out uint threadId)
     {
         targetWindow = NativeMethods.GetForegroundWindow();
         threadId = targetWindow == 0
             ? 0
             : NativeMethods.GetWindowThreadProcessId(targetWindow, out _);
 
-        if (threadId == 0)
-        {
-            return false;
-        }
-
         var info = new NativeMethods.GuiThreadInfo
         {
             Size = checked((uint)Marshal.SizeOf<NativeMethods.GuiThreadInfo>())
         };
 
-        if (NativeMethods.GetGUIThreadInfo(threadId, ref info))
+        if (NativeMethods.GetGUIThreadInfo(0, ref info) &&
+            info.FocusWindow != 0)
         {
-            targetWindow = info.FocusWindow != 0
-                ? info.FocusWindow
-                : info.ActiveWindow != 0
-                    ? info.ActiveWindow
-                    : targetWindow;
+            var focusThreadId = NativeMethods.GetWindowThreadProcessId(
+                info.FocusWindow,
+                out _);
+            if (focusThreadId != 0)
+            {
+                threadId = focusThreadId;
+            }
         }
 
-        return targetWindow != 0;
+        return targetWindow != 0 && threadId != 0;
     }
 
     private static bool RequestLayout(nint targetWindow, nint layoutHandle) =>
         NativeMethods.PostMessage(
             targetWindow,
             NativeMethods.WmInputLangChangeRequest,
-            0,
+            NativeMethods.InputLangChangeForward,
             layoutHandle);
 }

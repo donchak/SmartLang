@@ -11,4 +11,10 @@ public sealed class NativeMethodsTests
 
         Assert.Equal(expectedSize, Marshal.SizeOf<NativeMethods.Input>());
     }
+
+    [Fact]
+    public void LayoutRequestUsesWindowsForwardHotkeyFlag()
+    {
+        Assert.Equal(0x0002, NativeMethods.InputLangChangeForward);
+    }
 }
