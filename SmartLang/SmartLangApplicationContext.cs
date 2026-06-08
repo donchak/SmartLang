@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace SmartLang;
 
 public sealed class SmartLangApplicationContext : ApplicationContext
@@ -6,13 +8,13 @@ public sealed class SmartLangApplicationContext : ApplicationContext
     private readonly SettingsStore _settingsStore = new();
     private readonly StartupManager _startupManager = new();
     private readonly LanguageCatalog _languageCatalog = new();
-    private readonly KeyboardLayoutService _keyboardLayoutService;
     private readonly Control _dispatcher = new();
     private readonly Icon _applicationIcon;
     private readonly NotifyIcon _notifyIcon;
     private readonly System.Windows.Forms.Timer _hookRefreshTimer;
 
     private AppSettings _settings;
+    private KeyboardLayoutService? _keyboardLayoutService;
     private KeyboardHook? _keyboardHook;
     private SettingsForm? _settingsForm;
     private bool _isExiting;
@@ -20,7 +22,6 @@ public sealed class SmartLangApplicationContext : ApplicationContext
     public SmartLangApplicationContext(SingleInstanceCoordinator singleInstance)
     {
         _singleInstance = singleInstance;
-        _keyboardLayoutService = new KeyboardLayoutService(_languageCatalog);
         _settings = _settingsStore.Load();
         var executablePath = Environment.ProcessPath;
         _applicationIcon = executablePath is not null
@@ -56,7 +57,7 @@ public sealed class SmartLangApplicationContext : ApplicationContext
             _hookRefreshTimer.Stop();
             _hookRefreshTimer.Dispose();
             _keyboardHook?.Dispose();
-            _keyboardLayoutService.Dispose();
+            _keyboardLayoutService?.Dispose();
             _settingsForm?.Dispose();
             _notifyIcon.ContextMenuStrip?.Dispose();
             _notifyIcon.Dispose();
@@ -81,6 +82,21 @@ public sealed class SmartLangApplicationContext : ApplicationContext
             exception is UnauthorizedAccessException or IOException or InvalidOperationException)
         {
             ShowNotification("Startup setting", exception.Message, ToolTipIcon.Warning);
+        }
+
+        try
+        {
+            _keyboardLayoutService = new KeyboardLayoutService(_languageCatalog);
+        }
+        catch (Win32Exception exception)
+        {
+            AppLog.Write($"Could not initialize layout activator: {exception.Message}");
+            ShowNotification(
+                "Layout activator unavailable",
+                exception.Message,
+                ToolTipIcon.Error);
+            OpenSettings(exception.Message);
+            return;
         }
 
         var validationMessage = GetValidationMessage();
@@ -211,6 +227,12 @@ public sealed class SmartLangApplicationContext : ApplicationContext
             DisableKeyboardHook();
             ShowNotification("Settings need attention", validationMessage, ToolTipIcon.Warning);
             OpenSettings(validationMessage);
+            return;
+        }
+
+        if (_keyboardLayoutService is null)
+        {
+            DisableKeyboardHook();
             return;
         }
 

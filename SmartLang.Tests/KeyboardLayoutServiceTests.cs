@@ -5,10 +5,13 @@ public sealed class KeyboardLayoutServiceTests
     private static InstalledLayout Layout(nint handle, string tag, string name = "") =>
         new(handle, tag, tag, string.IsNullOrEmpty(name) ? tag : name);
 
+    private static KeyboardLayoutService CreateService() =>
+        new(new LanguageCatalog(), new RecordingInputProfileActivator());
+
     [Fact]
     public void ResolveLayoutReturnsNullWhenLanguageIsNotInstalled()
     {
-        var service = new KeyboardLayoutService(new LanguageCatalog());
+        var service = CreateService();
         var layouts = new[] { Layout(1, "en-US") };
 
         Assert.Null(service.ResolveLayout("fr-FR", layouts));
@@ -17,7 +20,7 @@ public sealed class KeyboardLayoutServiceTests
     [Fact]
     public void ResolveLayoutReturnsFirstMatchWhenNothingRemembered()
     {
-        var service = new KeyboardLayoutService(new LanguageCatalog());
+        var service = CreateService();
         var layouts = new[]
         {
             Layout(10, "en-US", "US"),
@@ -33,7 +36,7 @@ public sealed class KeyboardLayoutServiceTests
     [Fact]
     public void ResolveLayoutPrefersRememberedHandle()
     {
-        var service = new KeyboardLayoutService(new LanguageCatalog());
+        var service = CreateService();
         var layouts = new[]
         {
             Layout(10, "en-US", "US"),
@@ -50,7 +53,7 @@ public sealed class KeyboardLayoutServiceTests
     [Fact]
     public void ResolveLayoutFallsBackToFirstMatchWhenRememberedHandleIsNoLongerInstalled()
     {
-        var service = new KeyboardLayoutService(new LanguageCatalog());
+        var service = CreateService();
 
         service.Remember(Layout(99, "en-US", "Phantom"));
 
@@ -68,7 +71,7 @@ public sealed class KeyboardLayoutServiceTests
     [Fact]
     public void RememberIgnoresNull()
     {
-        var service = new KeyboardLayoutService(new LanguageCatalog());
+        var service = CreateService();
 
         service.Remember(null);
 
@@ -78,7 +81,7 @@ public sealed class KeyboardLayoutServiceTests
     [Fact]
     public void RememberOverwritesPriorEntryForSameLanguage()
     {
-        var service = new KeyboardLayoutService(new LanguageCatalog());
+        var service = CreateService();
 
         service.Remember(Layout(10, "en-US"));
         service.Remember(Layout(11, "en-US"));
@@ -90,7 +93,7 @@ public sealed class KeyboardLayoutServiceTests
     [Fact]
     public void RememberIsCaseInsensitiveOnLanguageTag()
     {
-        var service = new KeyboardLayoutService(new LanguageCatalog());
+        var service = CreateService();
 
         var layouts = new[]
         {

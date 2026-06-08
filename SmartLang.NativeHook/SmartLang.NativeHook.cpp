@@ -19,7 +19,6 @@ extern "C" __declspec(dllexport) LRESULT CALLBACK SmartLangGetMessageHook(
             message->message = WM_NULL;
             message->wParam = 0;
             message->lParam = 0;
-            return 0;
         }
     }
 

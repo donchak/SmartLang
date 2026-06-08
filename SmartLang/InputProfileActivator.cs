@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace SmartLang;
@@ -22,6 +24,8 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
 
     public NativeInputProfileActivator()
     {
+        NativeHookShadowCopy.CleanupStaleCopies();
+
         _hook64 = NativeHook.Install(
             ResolveLibraryPath(Native64FileName, Native64EnvironmentVariable),
             required: true);
@@ -68,28 +72,51 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
 
     private sealed class NativeHook : IDisposable
     {
+        private readonly string _shadowDirectory;
         private nint _moduleHandle;
         private nint _hookHandle;
 
-        private NativeHook(nint moduleHandle, nint hookHandle)
+        private NativeHook(
+            string shadowDirectory,
+            nint moduleHandle,
+            nint hookHandle)
         {
+            _shadowDirectory = shadowDirectory;
             _moduleHandle = moduleHandle;
             _hookHandle = hookHandle;
         }
 
         public static NativeHook? Install(string libraryPath, bool required)
         {
-            var moduleHandle = NativeMethods.LoadLibrary(libraryPath);
+            string shadowDirectory;
+            string shadowPath;
+            try
+            {
+                (shadowDirectory, shadowPath) =
+                    NativeHookShadowCopy.Create(libraryPath);
+            }
+            catch (Exception exception) when (
+                !required &&
+                exception is IOException or UnauthorizedAccessException)
+            {
+                AppLog.Write(
+                    $"Optional native hook shadow copy failed. Path={libraryPath}, " +
+                    $"error={exception.Message}");
+                return null;
+            }
+
+            var moduleHandle = NativeMethods.LoadLibrary(shadowPath);
             if (moduleHandle == 0)
             {
                 var error = Marshal.GetLastWin32Error();
+                NativeHookShadowCopy.TryDelete(shadowDirectory);
                 if (required)
                 {
-                    throw new Win32Exception(error, $"Could not load {libraryPath}.");
+                    throw new Win32Exception(error, $"Could not load {shadowPath}.");
                 }
 
                 AppLog.Write(
-                    $"Optional native hook DLL not loaded. Path={libraryPath}, error={error}.");
+                    $"Optional native hook DLL not loaded. Path={shadowPath}, error={error}.");
                 return null;
             }
 
@@ -100,13 +127,14 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
             {
                 var error = Marshal.GetLastWin32Error();
                 NativeMethods.FreeLibrary(moduleHandle);
+                NativeHookShadowCopy.TryDelete(shadowDirectory);
                 if (required)
                 {
-                    throw new Win32Exception(error, $"Could not find the native hook procedure in {libraryPath}.");
+                    throw new Win32Exception(error, $"Could not find the native hook procedure in {shadowPath}.");
                 }
 
                 AppLog.Write(
-                    $"Optional native hook procedure missing. Path={libraryPath}, error={error}.");
+                    $"Optional native hook procedure missing. Path={shadowPath}, error={error}.");
                 return null;
             }
 
@@ -119,19 +147,21 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
             {
                 var error = Marshal.GetLastWin32Error();
                 NativeMethods.FreeLibrary(moduleHandle);
+                NativeHookShadowCopy.TryDelete(shadowDirectory);
                 if (required)
                 {
-                    throw new Win32Exception(error, $"Could not install the layout activation hook from {libraryPath}.");
+                    throw new Win32Exception(error, $"Could not install the layout activation hook from {shadowPath}.");
                 }
 
                 AppLog.Write(
-                    $"Optional native hook not installed. Path={libraryPath}, error={error}.");
+                    $"Optional native hook not installed. Path={shadowPath}, error={error}.");
                 return null;
             }
 
             AppLog.Write(
-                $"Native layout hook installed. Path={libraryPath}, handle=0x{hookHandle:X}.");
-            return new NativeHook(moduleHandle, hookHandle);
+                $"Native layout hook installed. Source={libraryPath}, shadow={shadowPath}, " +
+                $"handle=0x{hookHandle:X}.");
+            return new NativeHook(shadowDirectory, moduleHandle, hookHandle);
         }
 
         public void Dispose()
@@ -147,6 +177,128 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
                 NativeMethods.FreeLibrary(_moduleHandle);
                 _moduleHandle = 0;
             }
+
+            NativeHookShadowCopy.TryDelete(_shadowDirectory);
+        }
+    }
+}
+
+internal static class NativeHookShadowCopy
+{
+    private const string DirectoryName = "NativeHooks";
+
+    internal static (string Directory, string LibraryPath) Create(
+        string sourcePath)
+    {
+        if (!File.Exists(sourcePath))
+        {
+            throw new FileNotFoundException(
+                "The native hook library was not found.",
+                sourcePath);
+        }
+
+        var processId = Environment.ProcessId;
+        var directory = Path.Combine(
+            GetRootDirectory(),
+            $"{processId}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(
+            Path.Combine(directory, ".owner"),
+            processId.ToString(CultureInfo.InvariantCulture));
+
+        var destinationPath = Path.Combine(
+            directory,
+            Path.GetFileName(sourcePath));
+        try
+        {
+            File.Copy(sourcePath, destinationPath, overwrite: false);
+            return (directory, destinationPath);
+        }
+        catch
+        {
+            TryDelete(directory);
+            throw;
+        }
+    }
+
+    internal static void CleanupStaleCopies()
+    {
+        var root = GetRootDirectory();
+        if (!Directory.Exists(root))
+        {
+            return;
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(root))
+        {
+            if (IsOwnedByLiveProcess(directory))
+            {
+                continue;
+            }
+
+            TryDelete(directory);
+        }
+    }
+
+    internal static void TryDelete(string directory)
+    {
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static string GetRootDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData),
+            "SmartLang",
+            DirectoryName);
+
+    private static bool IsOwnedByLiveProcess(string directory)
+    {
+        var ownerPath = Path.Combine(directory, ".owner");
+        if (!File.Exists(ownerPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            var text = File.ReadAllText(ownerPath);
+            if (!int.TryParse(
+                text,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var processId))
+            {
+                return false;
+            }
+
+            using var process = Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
         }
     }
 }

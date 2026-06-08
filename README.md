@@ -7,8 +7,44 @@ shortcut away while retaining access to every installed keyboard layout.
 
 - Windows 10 or Windows 11, x64
 - .NET 10 SDK for development
+- Visual Studio or Visual Studio Build Tools with:
+  - Desktop development with C++
+  - MSVC x86/x64 build tools
+  - Windows 10 or Windows 11 SDK
 
-## Build and test
+## Build Everything
+
+From a PowerShell terminal in the repository root:
+
+```powershell
+.\build.ps1
+```
+
+This restores packages, builds the C# application and both native hook DLLs,
+runs all tests, and publishes the complete application to
+`artifacts\publish`.
+
+Deploy the entire publish folder. These runtime files must remain together:
+
+- `SmartLang.exe`
+- `SmartLang.NativeHook.dll` for 64-bit applications
+- `SmartLang.NativeHook32.dll` for 32-bit applications
+
+At runtime SmartLang loads per-process shadow copies of the native hook DLLs
+from `%LocalAppData%\SmartLang\NativeHooks`. This keeps the published DLLs
+replaceable while Windows still has injected hook modules loaded in other
+processes. Stale shadow copies are removed automatically when Windows releases
+them.
+
+Optional arguments:
+
+```powershell
+.\build.ps1 -Configuration Debug
+.\build.ps1 -SkipTests
+.\build.ps1 -OutputDirectory C:\Builds\SmartLang
+```
+
+## Individual Commands
 
 ```powershell
 dotnet restore SmartLang.slnx
@@ -22,7 +58,8 @@ Create the portable, self-contained executable:
 dotnet publish SmartLang\SmartLang.csproj -c Release -o artifacts\publish
 ```
 
-The published application is `artifacts\publish\SmartLang.exe`.
+Building or publishing `SmartLang.csproj` automatically builds both native
+hook architectures through MSBuild.
 
 The application icon source is
 `SmartLang\Assets\smartlang-icon.png`; the embedded Windows icon is
