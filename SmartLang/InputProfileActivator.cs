@@ -2,12 +2,16 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace SmartLang;
 
 internal interface IInputProfileActivator : IDisposable
 {
-    bool ActivateKeyboardLayout(uint threadId, nint layoutHandle);
+    bool ActivateKeyboardLayout(
+        uint threadId,
+        nint targetWindow,
+        nint layoutHandle);
 }
 
 internal sealed class NativeInputProfileActivator : IInputProfileActivator
@@ -44,8 +48,19 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
         }
     }
 
-    public bool ActivateKeyboardLayout(uint threadId, nint layoutHandle)
+    public bool ActivateKeyboardLayout(
+        uint threadId,
+        nint targetWindow,
+        nint layoutHandle)
     {
+        if (IsCoreWindow(targetWindow))
+        {
+            return ActivateCoreWindow(
+                threadId,
+                targetWindow,
+                layoutHandle);
+        }
+
         var accepted = NativeMethods.PostThreadMessage(
             threadId,
             SmartLangActivateLayout,
@@ -56,6 +71,55 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
             $"Native layout request: thread={threadId}, HKL=0x{layoutHandle:X}, " +
             $"accepted={accepted}, error={Marshal.GetLastWin32Error()}.");
         return accepted;
+    }
+
+    internal static bool IsCoreWindowClass(string className) =>
+        string.Equals(
+            className,
+            "Windows.UI.Core.CoreWindow",
+            StringComparison.Ordinal);
+
+    private static bool IsCoreWindow(nint windowHandle)
+    {
+        var className = new StringBuilder(128);
+        return NativeMethods.GetClassName(
+            windowHandle,
+            className,
+            className.Capacity) > 0 &&
+            IsCoreWindowClass(className.ToString());
+    }
+
+    private static bool ActivateCoreWindow(
+        uint threadId,
+        nint windowHandle,
+        nint layoutHandle)
+    {
+        var accepted = NativeMethods.PostMessage(
+            windowHandle,
+            NativeMethods.WmInputLangChangeRequest,
+            0,
+            layoutHandle);
+        AppLog.Write(
+            $"CoreWindow layout request: HWND=0x{windowHandle:X}, " +
+            $"thread={threadId}, HKL=0x{layoutHandle:X}, accepted={accepted}, " +
+            $"error={Marshal.GetLastWin32Error()}.");
+        if (!accepted)
+        {
+            return false;
+        }
+
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            Thread.Sleep(10);
+            if (NativeMethods.GetKeyboardLayout(threadId) == layoutHandle)
+            {
+                return true;
+            }
+        }
+
+        AppLog.Write(
+            $"CoreWindow did not activate HKL=0x{layoutHandle:X}.");
+        return false;
     }
 
     public void Dispose()

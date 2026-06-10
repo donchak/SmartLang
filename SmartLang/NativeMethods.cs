@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace SmartLang;
 
@@ -9,6 +10,7 @@ internal static class NativeMethods
     internal const int WmKeyUp = 0x0101;
     internal const int WmSysKeyDown = 0x0104;
     internal const int WmSysKeyUp = 0x0105;
+    internal const uint WmInputLangChangeRequest = 0x0050;
     internal const uint WmApp = 0x8000;
 
     internal const uint LlkhfInjected = 0x00000010;
@@ -57,10 +59,19 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool FreeLibrary(nint moduleHandle);
 
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool PostThreadMessage(
         uint threadId,
+        uint message,
+        nint wParam,
+        nint lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool PostMessage(
+        nint windowHandle,
         uint message,
         nint wParam,
         nint lParam);
@@ -73,6 +84,12 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     internal static extern nint GetForegroundWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern int GetClassName(
+        nint windowHandle,
+        StringBuilder className,
+        int maximumCount);
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern uint GetWindowThreadProcessId(nint windowHandle, out uint processId);

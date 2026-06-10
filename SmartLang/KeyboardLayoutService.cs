@@ -27,7 +27,9 @@ public sealed class KeyboardLayoutService : IDisposable
     public bool TogglePrimaryLanguages(AppSettings settings)
     {
         var layouts = _catalog.GetInstalledLayouts();
-        if (!TryGetForegroundThread(out var threadId))
+        if (!TryGetForegroundTarget(
+            out var targetWindow,
+            out var threadId))
         {
             AppLog.Write("Primary switch failed: no foreground input thread.");
             return false;
@@ -52,14 +54,20 @@ public sealed class KeyboardLayoutService : IDisposable
         AppLog.Write(
             $"Primary switch: thread={threadId}, current=0x{currentHandle:X}, " +
             $"target=0x{targetLayout.Handle:X} ({targetLanguage}).");
-        return ActivateLayout(threadId, currentHandle, targetLayout.Handle);
+        return ActivateLayout(
+            threadId,
+            targetWindow,
+            currentHandle,
+            targetLayout.Handle);
     }
 
     public bool CycleAllLayouts()
     {
         var layouts = _catalog.GetInstalledLayouts();
         if (layouts.Count == 0 ||
-            !TryGetForegroundThread(out var threadId))
+            !TryGetForegroundTarget(
+                out var targetWindow,
+                out var threadId))
         {
             AppLog.Write("Cycle switch failed: no layouts or foreground input thread.");
             return false;
@@ -86,7 +94,11 @@ public sealed class KeyboardLayoutService : IDisposable
         }
 
         return targetIndex >= 0 &&
-            ActivateLayout(threadId, currentHandle, layouts[targetIndex].Handle);
+            ActivateLayout(
+                threadId,
+                targetWindow,
+                currentHandle,
+                layouts[targetIndex].Handle);
     }
 
     internal InstalledLayout? ResolveLayout(
@@ -124,19 +136,25 @@ public sealed class KeyboardLayoutService : IDisposable
 
     internal bool ActivateLayout(
         uint threadId,
+        nint targetWindow,
         nint currentHandle,
         nint targetHandle) =>
         currentHandle == targetHandle ||
-        _profileActivator.ActivateKeyboardLayout(threadId, targetHandle);
+        _profileActivator.ActivateKeyboardLayout(
+            threadId,
+            targetWindow,
+            targetHandle);
 
     public void Dispose() => _profileActivator.Dispose();
 
-    private static bool TryGetForegroundThread(out uint threadId)
+    private static bool TryGetForegroundTarget(
+        out nint targetWindow,
+        out uint threadId)
     {
-        var foregroundWindow = NativeMethods.GetForegroundWindow();
-        threadId = foregroundWindow == 0
+        targetWindow = NativeMethods.GetForegroundWindow();
+        threadId = targetWindow == 0
             ? 0
-            : NativeMethods.GetWindowThreadProcessId(foregroundWindow, out _);
+            : NativeMethods.GetWindowThreadProcessId(targetWindow, out _);
 
         var info = new NativeMethods.GuiThreadInfo
         {
@@ -151,10 +169,11 @@ public sealed class KeyboardLayoutService : IDisposable
                 out _);
             if (focusThreadId != 0)
             {
+                targetWindow = info.FocusWindow;
                 threadId = focusThreadId;
             }
         }
 
-        return foregroundWindow != 0 && threadId != 0;
+        return targetWindow != 0 && threadId != 0;
     }
 }

@@ -77,6 +77,9 @@ The application icon source is
 - Start-at-sign-in uses the current user's Windows `Run` registry key.
 
 SmartLang uses a small native hook helper to activate the layout inside the
-foreground application's input thread. It does not send layout-change window
-messages or emulate the Windows layout shortcut.
+foreground application's input thread.
 Running it as administrator is neither required nor recommended.
+
+Windows does not load ordinary global hook DLLs into packaged WinRT
+applications. For their `Windows.UI.Core.CoreWindow` input windows, SmartLang
+posts `WM_INPUTLANGCHANGEREQUEST` directly and verifies the resulting HKL.

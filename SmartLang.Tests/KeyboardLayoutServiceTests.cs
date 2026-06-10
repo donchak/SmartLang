@@ -113,10 +113,15 @@ public sealed class KeyboardLayoutServiceTests
         var activator = new RecordingInputProfileActivator();
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
-        var result = service.ActivateLayout(123, (nint)10, (nint)20);
+        var result = service.ActivateLayout(
+            123,
+            (nint)456,
+            (nint)10,
+            (nint)20);
 
         Assert.True(result);
         Assert.Equal(123u, activator.ThreadId);
+        Assert.Equal((nint)456, activator.TargetWindow);
         Assert.Equal((nint)20, activator.ActivatedHandle);
     }
 
@@ -126,7 +131,11 @@ public sealed class KeyboardLayoutServiceTests
         var activator = new RecordingInputProfileActivator();
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
-        var result = service.ActivateLayout(123, (nint)20, (nint)20);
+        var result = service.ActivateLayout(
+            123,
+            (nint)456,
+            (nint)20,
+            (nint)20);
 
         Assert.True(result);
         Assert.Null(activator.ActivatedHandle);
@@ -141,7 +150,11 @@ public sealed class KeyboardLayoutServiceTests
         };
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
-        var result = service.ActivateLayout(123, (nint)10, (nint)20);
+        var result = service.ActivateLayout(
+            123,
+            (nint)456,
+            (nint)10,
+            (nint)20);
 
         Assert.False(result);
         Assert.Equal((nint)20, activator.ActivatedHandle);
@@ -155,9 +168,15 @@ public sealed class KeyboardLayoutServiceTests
 
         public uint? ThreadId { get; private set; }
 
-        public bool ActivateKeyboardLayout(uint threadId, nint layoutHandle)
+        public nint? TargetWindow { get; private set; }
+
+        public bool ActivateKeyboardLayout(
+            uint threadId,
+            nint targetWindow,
+            nint layoutHandle)
         {
             ThreadId = threadId;
+            TargetWindow = targetWindow;
             ActivatedHandle = layoutHandle;
             return Result;
         }
