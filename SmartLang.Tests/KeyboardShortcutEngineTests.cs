@@ -1,13 +1,11 @@
 namespace SmartLang.Tests;
 
-public sealed class KeyboardShortcutEngineTests
-{
+public sealed class KeyboardShortcutEngineTests {
     [Theory]
     [InlineData(KeyboardShortcutEngine.VkLControl, KeyboardShortcutEngine.VkLShift)]
     [InlineData(KeyboardShortcutEngine.VkRControl, KeyboardShortcutEngine.VkRShift)]
     [InlineData(KeyboardShortcutEngine.VkLControl, KeyboardShortcutEngine.VkRShift)]
-    public void CtrlShiftTriggersOnceWhenModifierIsReleased(int control, int shift)
-    {
+    public void CtrlShiftTriggersOnceWhenModifierIsReleased(int control, int shift) {
         var engine = new KeyboardShortcutEngine();
 
         Assert.True(engine.Process(control, isKeyDown: true).Suppress);
@@ -25,8 +23,7 @@ public sealed class KeyboardShortcutEngineTests
     [Theory]
     [InlineData(KeyboardShortcutEngine.VkLControl, KeyboardShortcutEngine.VkLShift)]
     [InlineData(KeyboardShortcutEngine.VkRControl, KeyboardShortcutEngine.VkRShift)]
-    public void ShiftCanTriggerRepeatedlyWhileControlRemainsHeld(int control, int shift)
-    {
+    public void ShiftCanTriggerRepeatedlyWhileControlRemainsHeld(int control, int shift) {
         var engine = new KeyboardShortcutEngine();
 
         engine.Process(control, isKeyDown: true);
@@ -44,8 +41,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void ControlCanTriggerRepeatedlyWhileShiftRemainsHeld()
-    {
+    public void ControlCanTriggerRepeatedlyWhileShiftRemainsHeld() {
         var engine = new KeyboardShortcutEngine();
 
         engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true);
@@ -71,8 +67,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void CtrlShiftEscapeReplaysModifiersAndDoesNotTrigger()
-    {
+    public void CtrlShiftEscapeReplaysModifiersAndDoesNotTrigger() {
         const int vkEscape = 0x1B;
         var engine = new KeyboardShortcutEngine();
 
@@ -96,8 +91,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void NormalControlCombinationReplaysControlBeforeKey()
-    {
+    public void NormalControlCombinationReplaysControlBeforeKey() {
         const int vkC = 0x43;
         var engine = new KeyboardShortcutEngine();
 
@@ -114,8 +108,7 @@ public sealed class KeyboardShortcutEngineTests
     [Theory]
     [InlineData(KeyboardShortcutEngine.VkLWin)]
     [InlineData(KeyboardShortcutEngine.VkRWin)]
-    public void WinSpaceIsConsumedAndTriggersOnce(int windowsKey)
-    {
+    public void WinSpaceIsConsumedAndTriggersOnce(int windowsKey) {
         var engine = new KeyboardShortcutEngine();
 
         Assert.True(engine.Process(windowsKey, true).Suppress);
@@ -131,8 +124,7 @@ public sealed class KeyboardShortcutEngineTests
     [Theory]
     [InlineData(KeyboardShortcutEngine.VkLWin)]
     [InlineData(KeyboardShortcutEngine.VkRWin)]
-    public void SpaceCanTriggerRepeatedlyWhileWindowsKeyRemainsHeld(int windowsKey)
-    {
+    public void SpaceCanTriggerRepeatedlyWhileWindowsKeyRemainsHeld(int windowsKey) {
         var engine = new KeyboardShortcutEngine();
 
         engine.Process(windowsKey, isKeyDown: true);
@@ -158,8 +150,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void HeldConsumedModifierIsReplayedBeforeAnotherKey()
-    {
+    public void HeldConsumedModifierIsReplayedBeforeAnotherKey() {
         const int vkE = 0x45;
         var engine = new KeyboardShortcutEngine();
 
@@ -179,8 +170,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void DisabledWinSpacePassesThroughUnchanged()
-    {
+    public void DisabledWinSpacePassesThroughUnchanged() {
         var engine = new KeyboardShortcutEngine([ShortcutKind.CtrlShift]);
 
         var windowsDown = engine.Process(
@@ -205,8 +195,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void DisabledCtrlShiftPassesThroughUnchanged()
-    {
+    public void DisabledCtrlShiftPassesThroughUnchanged() {
         var engine = new KeyboardShortcutEngine([ShortcutKind.WinSpace]);
 
         Assert.False(engine.Process(
@@ -230,8 +219,7 @@ public sealed class KeyboardShortcutEngineTests
     [InlineData(KeyboardShortcutEngine.VkRControl)]
     [InlineData(KeyboardShortcutEngine.VkLWin)]
     [InlineData(KeyboardShortcutEngine.VkRWin)]
-    public void SingleModifierTapIsReplayedAsDownAndUp(int modifier)
-    {
+    public void SingleModifierTapIsReplayedAsDownAndUp(int modifier) {
         var engine = new KeyboardShortcutEngine();
 
         var press = engine.Process(modifier, true);
@@ -249,8 +237,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void ResetClearsStuckModifierAfterMissedKeyUp()
-    {
+    public void ResetClearsStuckModifierAfterMissedKeyUp() {
         const int vkA = 0x41;
         var engine = new KeyboardShortcutEngine();
 
@@ -281,8 +268,7 @@ public sealed class KeyboardShortcutEngineTests
     [InlineData(KeyboardShortcutEngine.VkRControl)]
     [InlineData(KeyboardShortcutEngine.VkLWin)]
     [InlineData(KeyboardShortcutEngine.VkRWin)]
-    public void PointerInputReplaysBufferedModifierBeforeClick(int modifier)
-    {
+    public void PointerInputReplaysBufferedModifierBeforeClick(int modifier) {
         var engine = new KeyboardShortcutEngine();
 
         Assert.True(engine.Process(modifier, isKeyDown: true).Suppress);
@@ -296,8 +282,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void InjectedPointerInputDoesNotReplayBufferedModifier()
-    {
+    public void InjectedPointerInputDoesNotReplayBufferedModifier() {
         var engine = new KeyboardShortcutEngine();
         engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true);
 
@@ -311,8 +296,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void PointerInputReplaysConsumedModifierStillHeldAfterShortcut()
-    {
+    public void PointerInputReplaysConsumedModifierStillHeldAfterShortcut() {
         var engine = new KeyboardShortcutEngine();
         engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true);
         engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true);
@@ -329,8 +313,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void OrdinarySingleKeyPassesThroughUnchanged()
-    {
+    public void OrdinarySingleKeyPassesThroughUnchanged() {
         const int vkA = 0x41;
         var engine = new KeyboardShortcutEngine();
 
@@ -346,8 +329,7 @@ public sealed class KeyboardShortcutEngineTests
     }
 
     [Fact]
-    public void EveryNonModifierVirtualKeyPassesThroughWhenPressedAlone()
-    {
+    public void EveryNonModifierVirtualKeyPassesThroughWhenPressedAlone() {
         HashSet<int> watchedModifiers =
         [
             KeyboardShortcutEngine.VkLShift,
@@ -358,10 +340,8 @@ public sealed class KeyboardShortcutEngineTests
             KeyboardShortcutEngine.VkRWin
         ];
 
-        for (var virtualKey = 1; virtualKey <= byte.MaxValue; virtualKey++)
-        {
-            if (watchedModifiers.Contains(virtualKey))
-            {
+        for(var virtualKey = 1; virtualKey <= byte.MaxValue; virtualKey++) {
+            if(watchedModifiers.Contains(virtualKey)) {
                 continue;
             }
 

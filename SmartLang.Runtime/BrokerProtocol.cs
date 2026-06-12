@@ -97,44 +97,34 @@ public static class BrokerProtocol
     }
 }
 
-public sealed class BrokerPipeServer : IAsyncDisposable
-{
+public sealed class BrokerPipeServer: IAsyncDisposable {
     private readonly Func<BrokerRequest, CancellationToken, Task<BrokerResponse>> _handler;
     private readonly CancellationTokenSource _stop = new();
     private Task? _listenTask;
 
     public BrokerPipeServer(
-        Func<BrokerRequest, CancellationToken, Task<BrokerResponse>> handler)
-    {
+        Func<BrokerRequest, CancellationToken, Task<BrokerResponse>> handler) {
         _handler = handler;
     }
 
-    public void Start()
-    {
+    public void Start() {
         _listenTask ??= Task.Run(() => ListenAsync(_stop.Token));
     }
 
-    public async ValueTask DisposeAsync()
-    {
+    public async ValueTask DisposeAsync() {
         await _stop.CancelAsync();
-        if (_listenTask is not null)
-        {
-            try
-            {
+        if(_listenTask is not null) {
+            try {
                 await _listenTask;
-            }
-            catch (OperationCanceledException)
-            {
+            } catch(OperationCanceledException) {
             }
         }
 
         _stop.Dispose();
     }
 
-    private async Task ListenAsync(CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested)
-        {
+    private async Task ListenAsync(CancellationToken cancellationToken) {
+        while(!cancellationToken.IsCancellationRequested) {
             var userSid = WindowsIdentity.GetCurrent().User
                 ?? throw new InvalidOperationException(
                     "The current Windows user SID is unavailable.");
@@ -158,29 +148,22 @@ public sealed class BrokerPipeServer : IAsyncDisposable
                 pipeSecurity);
             await pipe.WaitForConnectionAsync(cancellationToken);
 
-            try
-            {
+            try {
                 var request = await BrokerProtocol.ReadAsync<BrokerRequest>(
                     pipe,
                     cancellationToken);
                 BrokerResponse response;
-                if (request.ProtocolVersion != BrokerProtocol.CurrentVersion)
-                {
+                if(request.ProtocolVersion != BrokerProtocol.CurrentVersion) {
                     response = new BrokerResponse(
                         BrokerProtocol.CurrentVersion,
                         request.RequestId,
                         false,
                         new BrokerStatus(false, false, string.Empty),
                         "Unsupported broker protocol version.");
-                }
-                else
-                {
-                    try
-                    {
+                } else {
+                    try {
                         response = await _handler(request, cancellationToken);
-                    }
-                    catch (Exception exception)
-                    {
+                    } catch(Exception exception) {
                         AppLog.Write(
                             $"Broker request handler failed with " +
                             $"{exception.GetType().Name}: {exception.Message}");
@@ -194,10 +177,8 @@ public sealed class BrokerPipeServer : IAsyncDisposable
                 }
 
                 await BrokerProtocol.WriteAsync(pipe, response, cancellationToken);
-            }
-            catch (Exception exception) when (
-                exception is IOException or InvalidDataException or JsonException)
-            {
+            } catch(Exception exception) when(
+                  exception is IOException or InvalidDataException or JsonException) {
                 AppLog.Write($"Broker pipe request failed: {exception.Message}");
             }
         }

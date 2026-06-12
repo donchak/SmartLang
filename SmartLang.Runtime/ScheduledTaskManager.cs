@@ -5,8 +5,7 @@ using System.Text;
 
 namespace SmartLang;
 
-public sealed class ScheduledTaskManager
-{
+public sealed class ScheduledTaskManager {
     private const int TaskActionExec = 0;
     private const int TaskCreateOrUpdate = 6;
     private const int TaskInstancesIgnoreNew = 2;
@@ -20,14 +19,12 @@ public sealed class ScheduledTaskManager
         string brokerExecutablePath,
         bool startWithWindows,
         bool administratorSupport,
-        string? userSid = null)
-    {
+        string? userSid = null) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine the current user SID.");
 
         dynamic service = CreateService();
-        try
-        {
+        try {
             dynamic folder = GetOrCreateFolder(service, userSid);
 
             RegisterTask(
@@ -46,9 +43,7 @@ public sealed class ScheduledTaskManager
                 userSid,
                 highest: true,
                 enabled: startWithWindows && administratorSupport);
-        }
-        finally
-        {
+        } finally {
             Release(service);
         }
     }
@@ -56,13 +51,11 @@ public sealed class ScheduledTaskManager
     public void RegisterTray(
         string trayExecutablePath,
         bool startWithWindows,
-        string? userSid = null)
-    {
+        string? userSid = null) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine the current user SID.");
         dynamic service = CreateService();
-        try
-        {
+        try {
             dynamic folder = GetOrCreateFolder(service, userSid);
             RegisterTask(
                 service,
@@ -72,9 +65,7 @@ public sealed class ScheduledTaskManager
                 userSid,
                 highest: false,
                 enabled: startWithWindows);
-        }
-        finally
-        {
+        } finally {
             Release(service);
         }
     }
@@ -82,99 +73,75 @@ public sealed class ScheduledTaskManager
     public void Configure(
         bool startWithWindows,
         bool administratorSupport,
-        string? userSid = null)
-    {
+        string? userSid = null) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine the current user SID.");
         dynamic service = CreateService();
-        try
-        {
+        try {
             dynamic folder = service.GetFolder("\\SmartLang");
             folder.GetTask(TrayTaskName(userSid)).Enabled = startWithWindows;
             folder.GetTask(BrokerTaskName(userSid)).Enabled =
                 startWithWindows && administratorSupport;
-        }
-        finally
-        {
+        } finally {
             Release(service);
         }
     }
 
-    public bool RunBroker(string? userSid = null)
-    {
+    public bool RunBroker(string? userSid = null) {
         return RunTask(BrokerTaskName, userSid);
     }
 
-    public bool RunTray(string? userSid = null)
-    {
+    public bool RunTray(string? userSid = null) {
         return RunTask(TrayTaskName, userSid);
     }
 
-    public void Stop(string? userSid = null)
-    {
+    public void Stop(string? userSid = null) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine the current user SID.");
         dynamic service = CreateService();
-        try
-        {
+        try {
             dynamic folder = service.GetFolder("\\SmartLang");
             TryStop(folder, TrayTaskName(userSid));
             TryStop(folder, BrokerTaskName(userSid));
-        }
-        catch (Exception exception) when (
-            exception is COMException or FileNotFoundException)
-        {
-        }
-        finally
-        {
+        } catch(Exception exception) when(
+              exception is COMException or FileNotFoundException) {
+        } finally {
             Release(service);
         }
     }
 
     private static bool RunTask(
         Func<string, string> taskNameFactory,
-        string? userSid)
-    {
+        string? userSid) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine the current user SID.");
         dynamic service = CreateService();
-        try
-        {
+        try {
             dynamic folder = service.GetFolder("\\SmartLang");
             dynamic task = folder.GetTask(taskNameFactory(userSid));
             task.Run(null);
             return true;
-        }
-        catch (Exception exception) when (
-            exception is COMException or FileNotFoundException or
-            InvalidOperationException or UnauthorizedAccessException)
-        {
+        } catch(Exception exception) when(
+              exception is COMException or FileNotFoundException or
+              InvalidOperationException or UnauthorizedAccessException) {
             AppLog.Write($"Could not run the broker task: {exception.Message}");
             return false;
-        }
-        finally
-        {
+        } finally {
             Release(service);
         }
     }
 
-    public void Remove(string? userSid = null)
-    {
+    public void Remove(string? userSid = null) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine the current user SID.");
         dynamic service = CreateService();
-        try
-        {
+        try {
             dynamic folder = service.GetFolder("\\SmartLang");
             TryDelete(folder, TrayTaskName(userSid));
             TryDelete(folder, BrokerTaskName(userSid));
-        }
-        catch (Exception exception) when (
-            exception is COMException or FileNotFoundException)
-        {
-        }
-        finally
-        {
+        } catch(Exception exception) when(
+              exception is COMException or FileNotFoundException) {
+        } finally {
             Release(service);
         }
     }
@@ -183,8 +150,7 @@ public sealed class ScheduledTaskManager
 
     internal static string BrokerTaskName(string userSid) => $"Broker-{HashSid(userSid)}";
 
-    private static dynamic CreateService()
-    {
+    private static dynamic CreateService() {
         var type = Type.GetTypeFromProgID("Schedule.Service")
             ?? throw new PlatformNotSupportedException("Task Scheduler 2.0 is unavailable.");
         dynamic service = Activator.CreateInstance(type)
@@ -200,8 +166,7 @@ public sealed class ScheduledTaskManager
         string executablePath,
         string userSid,
         bool highest,
-        bool enabled)
-    {
+        bool enabled) {
         dynamic definition = service.NewTask(0);
         definition.RegistrationInfo.Description = "Starts SmartLang for this Windows user.";
         definition.Principal.UserId = userSid;
@@ -222,8 +187,7 @@ public sealed class ScheduledTaskManager
         definition.Settings.StopIfGoingOnBatteries = false;
         definition.Settings.ExecutionTimeLimit = "PT0S";
         definition.Settings.MultipleInstances = TaskInstancesIgnoreNew;
-        if (highest)
-        {
+        if(highest) {
             definition.Settings.RestartCount = 3;
             definition.Settings.RestartInterval = "PT1M";
         }
@@ -238,56 +202,41 @@ public sealed class ScheduledTaskManager
             BuildSecurityDescriptor(userSid));
     }
 
-    private static dynamic GetOrCreateFolder(dynamic service, string userSid)
-    {
+    private static dynamic GetOrCreateFolder(dynamic service, string userSid) {
         dynamic root = service.GetFolder("\\");
-        try
-        {
+        try {
             return root.GetFolder("SmartLang");
-        }
-        catch (Exception exception) when (
-            exception is COMException or FileNotFoundException)
-        {
+        } catch(Exception exception) when(
+              exception is COMException or FileNotFoundException) {
             return root.CreateFolder(
                 "SmartLang",
                 BuildSecurityDescriptor(userSid));
         }
     }
 
-    private static void TryDelete(dynamic folder, string taskName)
-    {
-        try
-        {
+    private static void TryDelete(dynamic folder, string taskName) {
+        try {
             folder.DeleteTask(taskName, 0);
-        }
-        catch (Exception exception) when (
-            exception is COMException or FileNotFoundException)
-        {
+        } catch(Exception exception) when(
+              exception is COMException or FileNotFoundException) {
         }
     }
 
-    private static void TryStop(dynamic folder, string taskName)
-    {
-        try
-        {
+    private static void TryStop(dynamic folder, string taskName) {
+        try {
             folder.GetTask(taskName).Stop(0);
-        }
-        catch (Exception exception) when (
-            exception is COMException or FileNotFoundException)
-        {
+        } catch(Exception exception) when(
+              exception is COMException or FileNotFoundException) {
         }
     }
 
     private static string HashSid(string userSid) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(userSid)))[..16];
 
-    private static string BuildSecurityDescriptor(string userSid) =>
-        $"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGWGX;;;{userSid})";
+    private static string BuildSecurityDescriptor(string userSid) => $"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGWGX;;;{userSid})";
 
-    private static void Release(object? value)
-    {
-        if (value is not null && Marshal.IsComObject(value))
-        {
+    private static void Release(object? value) {
+        if(value is not null && Marshal.IsComObject(value)) {
             Marshal.FinalReleaseComObject(value);
         }
     }

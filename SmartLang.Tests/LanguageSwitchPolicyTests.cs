@@ -1,15 +1,13 @@
 namespace SmartLang.Tests;
 
-public sealed class LanguageSwitchPolicyTests
-{
+public sealed class LanguageSwitchPolicyTests {
     [Theory]
     [InlineData("en-US", "fr-FR")]
     [InlineData("de-DE", "en-US")]
     [InlineData(null, "en-US")]
     public void PrimaryTargetFollowsConfiguredToggleRule(
         string? current,
-        string expected)
-    {
+        string expected) {
         var target = LanguageSwitchPolicy.GetPrimaryTargetLanguage(
             current,
             "en-US",
@@ -26,8 +24,7 @@ public sealed class LanguageSwitchPolicyTests
     public void NextLayoutIndexWraps(
         int currentIndex,
         int count,
-        int expected)
-    {
+        int expected) {
         Assert.Equal(
             expected,
             LanguageSwitchPolicy.GetNextLayoutIndex(currentIndex, count));

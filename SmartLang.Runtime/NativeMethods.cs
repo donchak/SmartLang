@@ -4,8 +4,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace SmartLang;
 
-internal static class NativeMethods
-{
+internal static class NativeMethods {
     internal const int WhKeyboardLl = 13;
     internal const int WhMouseLl = 14;
     internal const int WmKeyDown = 0x0100;
@@ -167,8 +166,7 @@ internal static class NativeMethods
     internal static extern bool GetGUIThreadInfo(uint threadId, ref GuiThreadInfo info);
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct KeyboardHookData
-    {
+    internal struct KeyboardHookData {
         internal uint VirtualKeyCode;
         internal uint ScanCode;
         internal uint Flags;
@@ -177,14 +175,12 @@ internal static class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct TokenElevationData
-    {
+    private struct TokenElevationData {
         internal int TokenIsElevated;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct MouseHookData
-    {
+    internal struct MouseHookData {
         internal Point Point;
         internal uint MouseData;
         internal uint Flags;
@@ -193,15 +189,13 @@ internal static class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct Point
-    {
+    internal struct Point {
         internal int X;
         internal int Y;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct GuiThreadInfo
-    {
+    internal struct GuiThreadInfo {
         internal uint Size;
         internal uint Flags;
         internal nint ActiveWindow;
@@ -214,8 +208,7 @@ internal static class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct Rect
-    {
+    internal struct Rect {
         internal int Left;
         internal int Top;
         internal int Right;
@@ -223,15 +216,13 @@ internal static class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct Input
-    {
+    internal struct Input {
         internal uint Type;
         internal InputUnion Data;
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    internal struct InputUnion
-    {
+    internal struct InputUnion {
         [FieldOffset(0)]
         internal MouseInput Mouse;
 
@@ -243,8 +234,7 @@ internal static class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct MouseInput
-    {
+    internal struct MouseInput {
         internal int X;
         internal int Y;
         internal uint MouseData;
@@ -254,8 +244,7 @@ internal static class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct KeyboardInput
-    {
+    internal struct KeyboardInput {
         internal ushort VirtualKey;
         internal ushort ScanCode;
         internal uint Flags;
@@ -264,8 +253,7 @@ internal static class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct HardwareInput
-    {
+    internal struct HardwareInput {
         internal uint Message;
         internal ushort ParameterLow;
         internal ushort ParameterHigh;
@@ -276,34 +264,23 @@ internal static class NativeMethods
             or KeyboardShortcutEngine.VkLWin
             or KeyboardShortcutEngine.VkRWin;
 
-    internal static string QueryProcessImagePath(SafeProcessHandle processHandle)
-    {
+    internal static string QueryProcessImagePath(SafeProcessHandle processHandle) {
         var capacity = 32_768u;
         var path = new StringBuilder((int)capacity);
-        if (!QueryFullProcessImageName(processHandle, 0, path, ref capacity))
-        {
+        if(!QueryFullProcessImageName(processHandle, 0, path, ref capacity)) {
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
         }
 
         return path.ToString();
     }
 
-    internal static bool IsProcessElevated(SafeProcessHandle processHandle)
-    {
-        if (!OpenProcessToken(processHandle, TokenQuery, out var tokenHandle))
-        {
+    internal static bool IsProcessElevated(SafeProcessHandle processHandle) {
+        if(!OpenProcessToken(processHandle, TokenQuery, out var tokenHandle)) {
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
         }
 
-        using (tokenHandle)
-        {
-            if (!GetTokenInformation(
-                tokenHandle,
-                TokenElevation,
-                out var elevation,
-                Marshal.SizeOf<TokenElevationData>(),
-                out _))
-            {
+        using(tokenHandle) {
+            if(!GetTokenInformation(tokenHandle, TokenElevation, out var elevation, Marshal.SizeOf<TokenElevationData>(), out _)) {
                 throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             }
 

@@ -1,7 +1,6 @@
 namespace SmartLang.Tests;
 
-public sealed class NativeInputProfileActivatorTests
-{
+public sealed class NativeInputProfileActivatorTests {
     [Theory]
     [InlineData("Windows.UI.Core.CoreWindow", true)]
     [InlineData("ApplicationFrameWindow", false)]
@@ -9,8 +8,7 @@ public sealed class NativeInputProfileActivatorTests
     [InlineData("", false)]
     public void CoreWindowDetectionIsExact(
         string className,
-        bool expected)
-    {
+        bool expected) {
         Assert.Equal(
             expected,
             NativeInputProfileActivator.IsCoreWindowClass(className));

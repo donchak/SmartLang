@@ -1,7 +1,6 @@
 namespace SmartLang.Tests;
 
-public sealed class KeyboardHookTests
-{
+public sealed class KeyboardHookTests {
     [Theory]
     [InlineData(NativeMethods.WmLButtonDown)]
     [InlineData(NativeMethods.WmLButtonUp)]
@@ -13,8 +12,7 @@ public sealed class KeyboardHookTests
     [InlineData(NativeMethods.WmXButtonDown)]
     [InlineData(NativeMethods.WmXButtonUp)]
     [InlineData(NativeMethods.WmMouseHWheel)]
-    public void MouseButtonsAndWheelsArePointerInteractions(int message)
-    {
+    public void MouseButtonsAndWheelsArePointerInteractions(int message) {
         Assert.True(KeyboardHook.IsPointerInteractionMessage(message));
     }
 
@@ -24,8 +22,7 @@ public sealed class KeyboardHookTests
     [InlineData(0x0206)]
     [InlineData(0x0209)]
     [InlineData(0x020D)]
-    public void MouseMovementAndDoubleClickMessagesAreNotPointerInteractions(int message)
-    {
+    public void MouseMovementAndDoubleClickMessagesAreNotPointerInteractions(int message) {
         Assert.False(KeyboardHook.IsPointerInteractionMessage(message));
     }
 }

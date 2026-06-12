@@ -5,13 +5,11 @@ public readonly record struct SyntheticKeyEvent(int VirtualKey, bool IsKeyDown);
 public sealed record ShortcutProcessingResult(
     bool Suppress,
     ShortcutKind? TriggeredShortcut = null,
-    IReadOnlyList<SyntheticKeyEvent>? ReplayEvents = null)
-{
+    IReadOnlyList<SyntheticKeyEvent>? ReplayEvents = null) {
     public static readonly ShortcutProcessingResult Pass = new(false);
 }
 
-public sealed class KeyboardShortcutEngine
-{
+public sealed class KeyboardShortcutEngine {
     public const int VkLShift = 0xA0;
     public const int VkRShift = 0xA1;
     public const int VkLControl = 0xA2;
@@ -27,75 +25,61 @@ public sealed class KeyboardShortcutEngine
     private readonly bool _ctrlShiftEnabled;
     private readonly bool _winSpaceEnabled;
 
-    public KeyboardShortcutEngine(IEnumerable<ShortcutKind>? enabledShortcuts = null)
-    {
+    public KeyboardShortcutEngine(IEnumerable<ShortcutKind>? enabledShortcuts = null) {
         var shortcuts = enabledShortcuts?.ToHashSet() ??
             [ShortcutKind.CtrlShift, ShortcutKind.WinSpace];
         _ctrlShiftEnabled = shortcuts.Contains(ShortcutKind.CtrlShift);
         _winSpaceEnabled = shortcuts.Contains(ShortcutKind.WinSpace);
     }
 
-    public void Reset()
-    {
+    public void Reset() {
         _physicallyDown.Clear();
         _bufferedModifiers.Clear();
         _replayedModifiers.Clear();
         _consumedKeys.Clear();
     }
 
-    public ShortcutProcessingResult Process(int virtualKey, bool isKeyDown, bool isInjected = false)
-    {
-        if (isInjected)
-        {
+    public ShortcutProcessingResult Process(int virtualKey, bool isKeyDown, bool isInjected = false) {
+        if(isInjected) {
             return ShortcutProcessingResult.Pass;
         }
 
         var wasDown = _physicallyDown.Contains(virtualKey);
-        if (isKeyDown)
-        {
+        if(isKeyDown) {
             _physicallyDown.Add(virtualKey);
-        }
-        else
-        {
+        } else {
             _physicallyDown.Remove(virtualKey);
         }
 
-        if (_consumedKeys.Contains(virtualKey))
-        {
-            if (!isKeyDown)
-            {
+        if(_consumedKeys.Contains(virtualKey)) {
+            if(!isKeyDown) {
                 _consumedKeys.Remove(virtualKey);
             }
 
             return new ShortcutProcessingResult(true);
         }
 
-        if (isKeyDown && wasDown)
-        {
+        if(isKeyDown && wasDown) {
             return _bufferedModifiers.Contains(virtualKey)
                 ? new ShortcutProcessingResult(true)
                 : ShortcutProcessingResult.Pass;
         }
 
-        if (IsWatchedModifier(virtualKey))
-        {
+        if(IsWatchedModifier(virtualKey)) {
             return isKeyDown
                 ? ProcessModifierDown(virtualKey)
                 : ProcessModifierUp(virtualKey);
         }
 
-        if (isKeyDown)
-        {
+        if(isKeyDown) {
             SeedHeldConsumedModifiers();
         }
 
-        if (isKeyDown &&
+        if(isKeyDown &&
             _winSpaceEnabled &&
             virtualKey == VkSpace &&
-            IsWinOnlyBuffer())
-        {
-            foreach (var key in _bufferedModifiers)
-            {
+            IsWinOnlyBuffer()) {
+            foreach(var key in _bufferedModifiers) {
                 _consumedKeys.Add(key);
             }
 
@@ -104,18 +88,15 @@ public sealed class KeyboardShortcutEngine
             return new ShortcutProcessingResult(true, ShortcutKind.WinSpace);
         }
 
-        if (_bufferedModifiers.Count > 0 && isKeyDown)
-        {
+        if(_bufferedModifiers.Count > 0 && isKeyDown) {
             return ReplayBufferedModifiers(suppressCurrentEvent: false);
         }
 
         return ShortcutProcessingResult.Pass;
     }
 
-    public ShortcutProcessingResult ProcessPointerInput(bool isInjected = false)
-    {
-        if (isInjected)
-        {
+    public ShortcutProcessingResult ProcessPointerInput(bool isInjected = false) {
+        if(isInjected) {
             return ShortcutProcessingResult.Pass;
         }
 
@@ -125,48 +106,38 @@ public sealed class KeyboardShortcutEngine
             : ShortcutProcessingResult.Pass;
     }
 
-    private ShortcutProcessingResult ProcessModifierDown(int virtualKey)
-    {
-        if (_replayedModifiers.Contains(virtualKey))
-        {
+    private ShortcutProcessingResult ProcessModifierDown(int virtualKey) {
+        if(_replayedModifiers.Contains(virtualKey)) {
             return ShortcutProcessingResult.Pass;
         }
 
-        if (_bufferedModifiers.Count == 0 &&
-            _physicallyDown.Any(key => key != virtualKey && !IsWatchedModifier(key)))
-        {
+        if(_bufferedModifiers.Count == 0 &&
+            _physicallyDown.Any(key => key != virtualKey && !IsWatchedModifier(key))) {
             return ShortcutProcessingResult.Pass;
         }
 
         SeedHeldConsumedModifiers();
         _bufferedModifiers.Add(virtualKey);
 
-        if (BufferCanStillBecomeShortcut())
-        {
+        if(BufferCanStillBecomeShortcut()) {
             return new ShortcutProcessingResult(true);
         }
 
         return ReplayBufferedModifiers(suppressCurrentEvent: true);
     }
 
-    private ShortcutProcessingResult ProcessModifierUp(int virtualKey)
-    {
-        if (_replayedModifiers.Remove(virtualKey))
-        {
+    private ShortcutProcessingResult ProcessModifierUp(int virtualKey) {
+        if(_replayedModifiers.Remove(virtualKey)) {
             return ShortcutProcessingResult.Pass;
         }
 
-        if (!_bufferedModifiers.Contains(virtualKey))
-        {
+        if(!_bufferedModifiers.Contains(virtualKey)) {
             return ShortcutProcessingResult.Pass;
         }
 
-        if (_ctrlShiftEnabled && IsCtrlShiftBuffer())
-        {
-            foreach (var key in _bufferedModifiers)
-            {
-                if (key != virtualKey && _physicallyDown.Contains(key))
-                {
+        if(_ctrlShiftEnabled && IsCtrlShiftBuffer()) {
+            foreach(var key in _bufferedModifiers) {
+                if(key != virtualKey && _physicallyDown.Contains(key)) {
                     _consumedKeys.Add(key);
                 }
             }
@@ -180,10 +151,8 @@ public sealed class KeyboardShortcutEngine
             .ToList();
         replay.Add(new SyntheticKeyEvent(virtualKey, false));
 
-        foreach (var key in _bufferedModifiers)
-        {
-            if (key != virtualKey && _physicallyDown.Contains(key))
-            {
+        foreach(var key in _bufferedModifiers) {
+            if(key != virtualKey && _physicallyDown.Contains(key)) {
                 _replayedModifiers.Add(key);
             }
         }
@@ -192,16 +161,13 @@ public sealed class KeyboardShortcutEngine
         return new ShortcutProcessingResult(true, ReplayEvents: replay);
     }
 
-    private ShortcutProcessingResult ReplayBufferedModifiers(bool suppressCurrentEvent)
-    {
+    private ShortcutProcessingResult ReplayBufferedModifiers(bool suppressCurrentEvent) {
         var replay = _bufferedModifiers
             .Select(key => new SyntheticKeyEvent(key, true))
             .ToArray();
 
-        foreach (var key in _bufferedModifiers)
-        {
-            if (_physicallyDown.Contains(key))
-            {
+        foreach(var key in _bufferedModifiers) {
+            if(_physicallyDown.Contains(key)) {
                 _consumedKeys.Remove(key);
                 _replayedModifiers.Add(key);
             }
@@ -211,21 +177,17 @@ public sealed class KeyboardShortcutEngine
         return new ShortcutProcessingResult(suppressCurrentEvent, ReplayEvents: replay);
     }
 
-    private void SeedHeldConsumedModifiers()
-    {
-        foreach (var key in _consumedKeys)
-        {
-            if (_physicallyDown.Contains(key) &&
+    private void SeedHeldConsumedModifiers() {
+        foreach(var key in _consumedKeys) {
+            if(_physicallyDown.Contains(key) &&
                 IsWatchedModifier(key) &&
-                !_bufferedModifiers.Contains(key))
-            {
+                !_bufferedModifiers.Contains(key)) {
                 _bufferedModifiers.Add(key);
             }
         }
     }
 
-    private bool BufferCanStillBecomeShortcut()
-    {
+    private bool BufferCanStillBecomeShortcut() {
         var hasWin = _bufferedModifiers.Any(IsWin);
         var hasCtrl = _bufferedModifiers.Any(IsControl);
         var hasShift = _bufferedModifiers.Any(IsShift);

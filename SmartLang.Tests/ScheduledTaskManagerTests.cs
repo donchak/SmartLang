@@ -1,10 +1,8 @@
 namespace SmartLang.Tests;
 
-public sealed class ScheduledTaskManagerTests
-{
+public sealed class ScheduledTaskManagerTests {
     [Fact]
-    public void TaskNamesAreStableAndSeparatedByRole()
-    {
+    public void TaskNamesAreStableAndSeparatedByRole() {
         const string sid = "S-1-5-21-100-200-300-1001";
 
         var tray = ScheduledTaskManager.TrayTaskName(sid);
@@ -18,8 +16,7 @@ public sealed class ScheduledTaskManagerTests
     }
 
     [Fact]
-    public void DifferentUsersReceiveDifferentTaskNames()
-    {
+    public void DifferentUsersReceiveDifferentTaskNames() {
         Assert.NotEqual(
             ScheduledTaskManager.BrokerTaskName("S-1-5-21-1"),
             ScheduledTaskManager.BrokerTaskName("S-1-5-21-2"));

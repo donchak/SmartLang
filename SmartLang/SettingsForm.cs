@@ -1,7 +1,6 @@
 namespace SmartLang;
 
-public sealed class SettingsForm : Form
-{
+public sealed class SettingsForm: Form {
     private readonly ComboBox _primaryLanguage = new();
     private readonly ComboBox _secondaryLanguage = new();
     private readonly ComboBox _primaryShortcut = new();
@@ -15,8 +14,7 @@ public sealed class SettingsForm : Form
     private Action? _restartAdministratorSupport;
     private bool _allowClose;
 
-    public SettingsForm(Icon applicationIcon)
-    {
+    public SettingsForm(Icon applicationIcon) {
         Text = "SmartLang Settings";
         Icon = (Icon)applicationIcon.Clone();
         StartPosition = FormStartPosition.CenterScreen;
@@ -63,23 +61,20 @@ public sealed class SettingsForm : Form
         _status.TextAlign = ContentAlignment.MiddleLeft;
         _status.Dock = DockStyle.Fill;
 
-        var restartAdministratorSupportButton = new Button
-        {
+        var restartAdministratorSupportButton = new Button {
             Text = "Restart administrator support",
             AutoSize = true
         };
         restartAdministratorSupportButton.Click += (_, _) =>
             _restartAdministratorSupport?.Invoke();
 
-        var saveButton = new Button
-        {
+        var saveButton = new Button {
             Text = "Save",
             AutoSize = true
         };
         saveButton.Click += (_, _) => Save();
 
-        var cancelButton = new Button
-        {
+        var cancelButton = new Button {
             Text = "Cancel",
             AutoSize = true,
             DialogResult = DialogResult.Cancel
@@ -89,8 +84,7 @@ public sealed class SettingsForm : Form
         AcceptButton = saveButton;
         CancelButton = cancelButton;
 
-        var buttons = new FlowLayoutPanel
-        {
+        var buttons = new FlowLayoutPanel {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.RightToLeft,
             AutoSize = true
@@ -98,8 +92,7 @@ public sealed class SettingsForm : Form
         buttons.Controls.Add(saveButton);
         buttons.Controls.Add(cancelButton);
 
-        var layout = new TableLayoutPanel
-        {
+        var layout = new TableLayoutPanel {
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
             ColumnCount = 2,
@@ -107,8 +100,7 @@ public sealed class SettingsForm : Form
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        for (var row = 0; row < 7; row++)
-        {
+        for(var row = 0; row < 7; row++) {
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         }
 
@@ -134,21 +126,18 @@ public sealed class SettingsForm : Form
         FormClosing += HandleFormClosing;
     }
 
-    public void SetSaveHandler(Func<AppSettings, string?> saveRequested)
-    {
+    public void SetSaveHandler(Func<AppSettings, string?> saveRequested) {
         _saveRequested = saveRequested;
     }
 
-    public void SetRestartAdministratorSupportHandler(Action restartRequested)
-    {
+    public void SetRestartAdministratorSupportHandler(Action restartRequested) {
         _restartAdministratorSupport = restartRequested;
     }
 
     public void LoadSettings(
         AppSettings settings,
         IReadOnlyList<LanguageOption> languages,
-        string? validationMessage)
-    {
+        string? validationMessage) {
         _languages = languages;
 
         _primaryLanguage.DataSource = languages.ToArray();
@@ -168,32 +157,27 @@ public sealed class SettingsForm : Form
         _status.Text = validationMessage ?? string.Empty;
     }
 
-    public void SetAdministratorSupportStatus(string status, bool isError)
-    {
+    public void SetAdministratorSupportStatus(string status, bool isError) {
         _administratorStatus.Text = status;
         _administratorStatus.ForeColor = isError
             ? Color.Firebrick
             : SystemColors.ControlText;
     }
 
-    public void AllowClose()
-    {
+    public void AllowClose() {
         _allowClose = true;
     }
 
-    private void Save()
-    {
-        if (_primaryLanguage.SelectedItem is not LanguageOption primary ||
+    private void Save() {
+        if(_primaryLanguage.SelectedItem is not LanguageOption primary ||
             _secondaryLanguage.SelectedItem is not LanguageOption secondary ||
             _primaryShortcut.SelectedItem is not ShortcutOption primaryShortcut ||
-            _allLayoutsShortcut.SelectedItem is not ShortcutOption allLayoutsShortcut)
-        {
+            _allLayoutsShortcut.SelectedItem is not ShortcutOption allLayoutsShortcut) {
             _status.Text = "Complete all settings before saving.";
             return;
         }
 
-        var settings = new AppSettings
-        {
+        var settings = new AppSettings {
             PrimaryLanguageTag = primary.LanguageTag,
             SecondaryLanguageTag = secondary.LanguageTag,
             PrimaryShortcut = primaryShortcut.Kind,
@@ -203,15 +187,13 @@ public sealed class SettingsForm : Form
         };
 
         var validationMessage = SettingsValidator.Validate(settings, _languages);
-        if (validationMessage is not null)
-        {
+        if(validationMessage is not null) {
             _status.Text = validationMessage;
             return;
         }
 
         var saveError = _saveRequested?.Invoke(settings);
-        if (saveError is not null)
-        {
+        if(saveError is not null) {
             _status.Text = saveError;
             return;
         }
@@ -219,10 +201,8 @@ public sealed class SettingsForm : Form
         Hide();
     }
 
-    private void HandleFormClosing(object? sender, FormClosingEventArgs eventArgs)
-    {
-        if (_allowClose)
-        {
+    private void HandleFormClosing(object? sender, FormClosingEventArgs eventArgs) {
+        if(_allowClose) {
             return;
         }
 
@@ -230,8 +210,7 @@ public sealed class SettingsForm : Form
         Hide();
     }
 
-    private static void ConfigureCombo(ComboBox comboBox)
-    {
+    private static void ConfigureCombo(ComboBox comboBox) {
         comboBox.DropDownStyle = ComboBoxStyle.DropDownList;
         comboBox.Dock = DockStyle.Fill;
     }
@@ -240,10 +219,8 @@ public sealed class SettingsForm : Form
         TableLayoutPanel layout,
         int row,
         string labelText,
-        Control control)
-    {
-        var label = new Label
-        {
+        Control control) {
+        var label = new Label {
             Text = labelText,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft
@@ -255,16 +232,13 @@ public sealed class SettingsForm : Form
     private static void SelectLanguage(
         ComboBox comboBox,
         string languageTag,
-        int fallbackIndex)
-    {
-        for (var index = 0; index < comboBox.Items.Count; index++)
-        {
-            if (comboBox.Items[index] is LanguageOption language &&
+        int fallbackIndex) {
+        for(var index = 0; index < comboBox.Items.Count; index++) {
+            if(comboBox.Items[index] is LanguageOption language &&
                 string.Equals(
                     language.LanguageTag,
                     languageTag,
-                    StringComparison.OrdinalIgnoreCase))
-            {
+                    StringComparison.OrdinalIgnoreCase)) {
                 comboBox.SelectedIndex = index;
                 return;
             }
@@ -275,13 +249,10 @@ public sealed class SettingsForm : Form
             : Math.Min(fallbackIndex, comboBox.Items.Count - 1);
     }
 
-    private static void SelectShortcut(ComboBox comboBox, ShortcutKind shortcut)
-    {
-        for (var index = 0; index < comboBox.Items.Count; index++)
-        {
-            if (comboBox.Items[index] is ShortcutOption option &&
-                option.Kind == shortcut)
-            {
+    private static void SelectShortcut(ComboBox comboBox, ShortcutKind shortcut) {
+        for(var index = 0; index < comboBox.Items.Count; index++) {
+            if(comboBox.Items[index] is ShortcutOption option &&
+                option.Kind == shortcut) {
                 comboBox.SelectedIndex = index;
                 return;
             }

@@ -1,12 +1,10 @@
 namespace SmartLang;
 
-public static class LanguageSwitchPolicy
-{
+public static class LanguageSwitchPolicy {
     public static string GetPrimaryTargetLanguage(
         string? currentLanguageTag,
         string primaryLanguageTag,
-        string secondaryLanguageTag)
-    {
+        string secondaryLanguageTag) {
         return string.Equals(
             currentLanguageTag,
             primaryLanguageTag,
@@ -15,10 +13,8 @@ public static class LanguageSwitchPolicy
             : primaryLanguageTag;
     }
 
-    public static int GetNextLayoutIndex(int currentIndex, int layoutCount)
-    {
-        if (layoutCount <= 0)
-        {
+    public static int GetNextLayoutIndex(int currentIndex, int layoutCount) {
+        if(layoutCount <= 0) {
             return -1;
         }
 

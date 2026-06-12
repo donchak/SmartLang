@@ -1,9 +1,7 @@
 namespace SmartLang;
 
-public static class ProcessSecurity
-{
-    public static bool IsCurrentProcessElevated()
-    {
+public static class ProcessSecurity {
+    public static bool IsCurrentProcessElevated() {
         using var processHandle = NativeMethods.OpenProcess(
             NativeMethods.ProcessQueryLimitedInformation,
             false,
@@ -12,8 +10,7 @@ public static class ProcessSecurity
             NativeMethods.IsProcessElevated(processHandle);
     }
 
-    public static bool IsProtectedInstallation(string baseDirectory)
-    {
+    public static bool IsProtectedInstallation(string baseDirectory) {
         var fullPath = Path.GetFullPath(baseDirectory)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
             Path.DirectorySeparatorChar;
@@ -26,10 +23,8 @@ public static class ProcessSecurity
             IsUnder(fullPath, programFilesX86);
     }
 
-    private static bool IsUnder(string fullPath, string parentDirectory)
-    {
-        if (string.IsNullOrWhiteSpace(parentDirectory))
-        {
+    private static bool IsUnder(string fullPath, string parentDirectory) {
+        if(string.IsNullOrWhiteSpace(parentDirectory)) {
             return false;
         }
 

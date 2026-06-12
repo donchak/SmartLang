@@ -1,7 +1,6 @@
 namespace SmartLang.Tests;
 
-public sealed class SettingsValidatorTests
-{
+public sealed class SettingsValidatorTests {
     private static readonly LanguageOption[] Languages =
     [
         new("en-US", "English"),
@@ -9,14 +8,12 @@ public sealed class SettingsValidatorTests
     ];
 
     [Fact]
-    public void ValidSettingsAreAccepted()
-    {
+    public void ValidSettingsAreAccepted() {
         Assert.Null(SettingsValidator.Validate(CreateValidSettings(), Languages));
     }
 
     [Fact]
-    public void SameLanguageIsRejected()
-    {
+    public void SameLanguageIsRejected() {
         var settings = CreateValidSettings();
         settings.SecondaryLanguageTag = settings.PrimaryLanguageTag;
 
@@ -26,8 +23,7 @@ public sealed class SettingsValidatorTests
     }
 
     [Fact]
-    public void SameShortcutIsRejected()
-    {
+    public void SameShortcutIsRejected() {
         var settings = CreateValidSettings();
         settings.AllLayoutsShortcut = settings.PrimaryShortcut;
 
@@ -37,8 +33,7 @@ public sealed class SettingsValidatorTests
     }
 
     [Fact]
-    public void NoneIsAcceptedForAllLayoutsShortcut()
-    {
+    public void NoneIsAcceptedForAllLayoutsShortcut() {
         var settings = CreateValidSettings();
         settings.AllLayoutsShortcut = ShortcutKind.None;
 
@@ -46,8 +41,7 @@ public sealed class SettingsValidatorTests
     }
 
     [Fact]
-    public void NoneIsRejectedForPrimaryShortcut()
-    {
+    public void NoneIsRejectedForPrimaryShortcut() {
         var settings = CreateValidSettings();
         settings.PrimaryShortcut = ShortcutKind.None;
 
@@ -57,8 +51,7 @@ public sealed class SettingsValidatorTests
     }
 
     [Fact]
-    public void RemovedLanguageIsRejected()
-    {
+    public void RemovedLanguageIsRejected() {
         var settings = CreateValidSettings();
         LanguageOption[] languagesAfterRemoval =
         [
@@ -71,8 +64,7 @@ public sealed class SettingsValidatorTests
             SettingsValidator.Validate(settings, languagesAfterRemoval));
     }
 
-    private static AppSettings CreateValidSettings() => new()
-    {
+    private static AppSettings CreateValidSettings() => new() {
         PrimaryLanguageTag = "en-US",
         SecondaryLanguageTag = "fr-FR",
         PrimaryShortcut = ShortcutKind.CtrlShift,

@@ -1,16 +1,13 @@
 namespace SmartLang.Tests;
 
-public sealed class BrokerProtocolTests
-{
+public sealed class BrokerProtocolTests {
     [Fact]
-    public async Task RequestRoundTripsThroughLengthPrefixedJson()
-    {
+    public async Task RequestRoundTripsThroughLengthPrefixedJson() {
         var expected = new BrokerRequest(
             BrokerProtocol.CurrentVersion,
             Guid.NewGuid(),
             BrokerCommand.SaveSettings,
-            new AppSettings
-            {
+            new AppSettings {
                 PrimaryLanguageTag = "en-US",
                 SecondaryLanguageTag = "fr-FR",
                 AdministratorAppSupport = true
@@ -31,8 +28,7 @@ public sealed class BrokerProtocolTests
     }
 
     [Fact]
-    public async Task InvalidFrameLengthIsRejected()
-    {
+    public async Task InvalidFrameLengthIsRejected() {
         await using var stream = new MemoryStream(
             BitConverter.GetBytes(BrokerProtocol.MaximumMessageLength + 1));
 
@@ -43,14 +39,12 @@ public sealed class BrokerProtocolTests
     }
 
     [Fact]
-    public async Task OversizedMessageIsRejectedBeforeWriting()
-    {
+    public async Task OversizedMessageIsRejectedBeforeWriting() {
         var request = new BrokerRequest(
             BrokerProtocol.CurrentVersion,
             Guid.NewGuid(),
             BrokerCommand.SaveSettings,
-            new AppSettings
-            {
+            new AppSettings {
                 PrimaryLanguageTag = new string('x', BrokerProtocol.MaximumMessageLength)
             });
         await using var stream = new MemoryStream();

@@ -2,14 +2,11 @@ using System.Windows.Forms;
 
 namespace SmartLang;
 
-public sealed class LanguageCatalog
-{
-    public IReadOnlyList<InstalledLayout> GetInstalledLayouts()
-    {
+public sealed class LanguageCatalog {
+    public IReadOnlyList<InstalledLayout> GetInstalledLayouts() {
         var layouts = new List<InstalledLayout>();
 
-        foreach (InputLanguage inputLanguage in InputLanguage.InstalledInputLanguages)
-        {
+        foreach(InputLanguage inputLanguage in InputLanguage.InstalledInputLanguages) {
             layouts.Add(new InstalledLayout(
                 inputLanguage.Handle,
                 inputLanguage.Culture.Name,
@@ -21,8 +18,7 @@ public sealed class LanguageCatalog
     }
 
     public IReadOnlyList<LanguageOption> GetLanguageOptions(
-        IReadOnlyList<InstalledLayout>? layouts = null)
-    {
+        IReadOnlyList<InstalledLayout>? layouts = null) {
         layouts ??= GetInstalledLayouts();
 
         return layouts

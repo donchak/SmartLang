@@ -2,8 +2,7 @@ using System.ComponentModel;
 
 namespace SmartLang.Broker;
 
-internal sealed class BrokerApplicationContext : ApplicationContext
-{
+internal sealed class BrokerApplicationContext: ApplicationContext {
     private readonly Control _dispatcher = new();
     private readonly SettingsStore _settingsStore = new();
     private readonly LanguageCatalog _languageCatalog = new();
@@ -16,13 +15,11 @@ internal sealed class BrokerApplicationContext : ApplicationContext
     private string? _lastError;
     private bool _isExiting;
 
-    internal BrokerApplicationContext()
-    {
+    internal BrokerApplicationContext() {
         _settings = _settingsStore.Load();
         _runtime = new HookRuntimeController(
             Dispatch,
-            error =>
-            {
+            error => {
                 _lastError = error;
                 AppLog.Write(error);
             });
@@ -34,10 +31,8 @@ internal sealed class BrokerApplicationContext : ApplicationContext
         _dispatcher.BeginInvoke(Initialize);
     }
 
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
+    protected override void Dispose(bool disposing) {
+        if(disposing) {
             _isExiting = true;
             _refreshTimer.Stop();
             _refreshTimer.Dispose();
@@ -49,17 +44,13 @@ internal sealed class BrokerApplicationContext : ApplicationContext
         base.Dispose(disposing);
     }
 
-    private void Initialize()
-    {
+    private void Initialize() {
         var validation = SettingsValidator.Validate(
             _settings,
             _languageCatalog.GetLanguageOptions());
-        if (validation is null)
-        {
+        if(validation is null) {
             TryActivateHooks();
-        }
-        else
-        {
+        } else {
             _lastError = validation;
         }
 
@@ -72,12 +63,9 @@ internal sealed class BrokerApplicationContext : ApplicationContext
         CancellationToken cancellationToken) =>
         DispatchAsync(() => HandleRequest(request), cancellationToken);
 
-    private BrokerResponse HandleRequest(BrokerRequest request)
-    {
-        try
-        {
-            return request.Command switch
-            {
+    private BrokerResponse HandleRequest(BrokerRequest request) {
+        try {
+            return request.Command switch {
                 BrokerCommand.GetStatus => Success(request),
                 BrokerCommand.ActivateHooks => ActivateHooks(request),
                 BrokerCommand.SaveSettings => SaveSettings(request),
@@ -85,12 +73,10 @@ internal sealed class BrokerApplicationContext : ApplicationContext
                 BrokerCommand.Stop => Stop(request),
                 _ => Failure(request, "Unsupported broker command.")
             };
-        }
-        catch (Exception exception) when (
-            exception is IOException or UnauthorizedAccessException or
-            InvalidOperationException or Win32Exception or
-            System.Runtime.InteropServices.COMException)
-        {
+        } catch(Exception exception) when(
+              exception is IOException or UnauthorizedAccessException or
+              InvalidOperationException or Win32Exception or
+              System.Runtime.InteropServices.COMException) {
             _lastError = exception.Message;
             AppLog.Write(
                 $"Broker command {request.Command} failed with " +
@@ -99,13 +85,11 @@ internal sealed class BrokerApplicationContext : ApplicationContext
         }
     }
 
-    private BrokerResponse ActivateHooks(BrokerRequest request)
-    {
+    private BrokerResponse ActivateHooks(BrokerRequest request) {
         var validation = SettingsValidator.Validate(
             _settings,
             _languageCatalog.GetLanguageOptions());
-        if (validation is not null)
-        {
+        if(validation is not null) {
             return Failure(request, validation);
         }
 
@@ -114,34 +98,29 @@ internal sealed class BrokerApplicationContext : ApplicationContext
             : Failure(request, "Another SmartLang process currently owns the input hooks.");
     }
 
-    private BrokerResponse SaveSettings(BrokerRequest request)
-    {
-        if (request.Settings is null)
-        {
+    private BrokerResponse SaveSettings(BrokerRequest request) {
+        if(request.Settings is null) {
             return Failure(request, "Settings were not supplied.");
         }
 
         var validation = SettingsValidator.Validate(
             request.Settings,
             _languageCatalog.GetLanguageOptions());
-        if (validation is not null)
-        {
+        if(validation is not null) {
             return Failure(request, validation);
         }
 
         _settingsStore.Save(request.Settings);
         _settings = request.Settings.Copy();
         _lastError = null;
-        if (!_runtime.Restart(_settings))
-        {
+        if(!_runtime.Restart(_settings)) {
             _lastError = "Another SmartLang process currently owns the input hooks.";
         }
 
         return Success(request);
     }
 
-    private BrokerResponse ConfigureStartup(BrokerRequest request)
-    {
+    private BrokerResponse ConfigureStartup(BrokerRequest request) {
         var settings = request.Settings ?? _settings;
         _taskManager.Configure(
             settings.StartWithWindows,
@@ -149,15 +128,12 @@ internal sealed class BrokerApplicationContext : ApplicationContext
         return Success(request);
     }
 
-    private BrokerResponse Stop(BrokerRequest request)
-    {
+    private BrokerResponse Stop(BrokerRequest request) {
         _runtime.Stop();
         _refreshTimer.Stop();
         _ = Task.Delay(250).ContinueWith(
-            _ => Dispatch(() =>
-            {
-                if (!_isExiting)
-                {
+            _ => Dispatch(() => {
+                if(!_isExiting) {
                     _isExiting = true;
                     ExitThread();
                 }
@@ -168,20 +144,15 @@ internal sealed class BrokerApplicationContext : ApplicationContext
         return Success(request);
     }
 
-    private bool TryActivateHooks()
-    {
-        try
-        {
+    private bool TryActivateHooks() {
+        try {
             var active = _runtime.TryStart(_settings);
-            if (active)
-            {
+            if(active) {
                 _lastError = null;
             }
 
             return active;
-        }
-        catch (Win32Exception exception)
-        {
+        } catch(Win32Exception exception) {
             _lastError = exception.Message;
             AppLog.Write($"Broker could not activate hooks: {exception.Message}");
             return false;
@@ -210,38 +181,28 @@ internal sealed class BrokerApplicationContext : ApplicationContext
             Version: Application.ProductVersion,
             LastError: _lastError);
 
-    private Task<T> DispatchAsync<T>(Func<T> action, CancellationToken cancellationToken)
-    {
+    private Task<T> DispatchAsync<T>(Func<T> action, CancellationToken cancellationToken) {
         var completion = new TaskCompletionSource<T>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
-        Dispatch(() =>
-        {
-            try
-            {
+        Dispatch(() => {
+            try {
                 completion.TrySetResult(action());
-            }
-            catch (Exception exception)
-            {
+            } catch(Exception exception) {
                 completion.TrySetException(exception);
             }
         });
         return completion.Task;
     }
 
-    private void Dispatch(Action action)
-    {
-        if (_isExiting || _dispatcher.IsDisposed)
-        {
+    private void Dispatch(Action action) {
+        if(_isExiting || _dispatcher.IsDisposed) {
             return;
         }
 
-        try
-        {
+        try {
             _dispatcher.BeginInvoke(action);
-        }
-        catch (InvalidOperationException) when (_isExiting || _dispatcher.IsDisposed)
-        {
+        } catch(InvalidOperationException) when(_isExiting || _dispatcher.IsDisposed) {
         }
     }
 }

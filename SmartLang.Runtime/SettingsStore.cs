@@ -3,16 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace SmartLang;
 
-public sealed class SettingsStore
-{
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
+public sealed class SettingsStore {
+    private static readonly JsonSerializerOptions JsonOptions = new() {
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public SettingsStore(string? filePath = null)
-    {
+    public SettingsStore(string? filePath = null) {
         FilePath = filePath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SmartLang",
@@ -21,12 +18,9 @@ public sealed class SettingsStore
 
     public string FilePath { get; }
 
-    public AppSettings Load()
-    {
-        try
-        {
-            if (!File.Exists(FilePath))
-            {
+    public AppSettings Load() {
+        try {
+            if(!File.Exists(FilePath)) {
                 return new AppSettings();
             }
 
@@ -34,61 +28,43 @@ public sealed class SettingsStore
                 File.ReadAllText(FilePath),
                 JsonOptions);
 
-            return settings?.Version switch
-            {
+            return settings?.Version switch {
                 AppSettings.CurrentVersion => settings,
                 1 => MigrateVersion1(settings),
                 _ => new AppSettings()
             };
-        }
-        catch (JsonException)
-        {
+        } catch(JsonException) {
             return new AppSettings();
-        }
-        catch (IOException)
-        {
+        } catch(IOException) {
             return new AppSettings();
-        }
-        catch (UnauthorizedAccessException)
-        {
+        } catch(UnauthorizedAccessException) {
             return new AppSettings();
         }
     }
 
-    public void Save(AppSettings settings)
-    {
+    public void Save(AppSettings settings) {
         var directory = Path.GetDirectoryName(FilePath)
             ?? throw new InvalidOperationException("The settings path has no parent directory.");
 
         Directory.CreateDirectory(directory);
         var temporaryPath = FilePath + ".tmp";
         var moved = false;
-        try
-        {
+        try {
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, JsonOptions));
             File.Move(temporaryPath, FilePath, overwrite: true);
             moved = true;
-        }
-        finally
-        {
-            if (!moved)
-            {
-                try
-                {
+        } finally {
+            if(!moved) {
+                try {
                     File.Delete(temporaryPath);
-                }
-                catch (IOException)
-                {
-                }
-                catch (UnauthorizedAccessException)
-                {
+                } catch(IOException) {
+                } catch(UnauthorizedAccessException) {
                 }
             }
         }
     }
 
-    private static AppSettings MigrateVersion1(AppSettings settings)
-    {
+    private static AppSettings MigrateVersion1(AppSettings settings) {
         settings.Version = AppSettings.CurrentVersion;
         settings.AdministratorAppSupport = true;
         return settings;

@@ -1,18 +1,15 @@
 namespace SmartLang.Tests;
 
-public sealed class SettingsStoreTests : IDisposable
-{
+public sealed class SettingsStoreTests: IDisposable {
     private readonly string _directory = Path.Combine(
         Path.GetTempPath(),
         $"SmartLang.Tests.{Guid.NewGuid():N}");
 
     [Fact]
-    public void SettingsRoundTrip()
-    {
+    public void SettingsRoundTrip() {
         var path = Path.Combine(_directory, "settings.json");
         var store = new SettingsStore(path);
-        var expected = new AppSettings
-        {
+        var expected = new AppSettings {
             PrimaryLanguageTag = "en-US",
             SecondaryLanguageTag = "fr-FR",
             PrimaryShortcut = ShortcutKind.WinSpace,
@@ -36,8 +33,7 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void InvalidJsonReturnsDefaults()
-    {
+    public void InvalidJsonReturnsDefaults() {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "settings.json");
         File.WriteAllText(path, "{not-json");
@@ -50,12 +46,10 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void NoneAllLayoutsShortcutRoundTrips()
-    {
+    public void NoneAllLayoutsShortcutRoundTrips() {
         var path = Path.Combine(_directory, "settings.json");
         var store = new SettingsStore(path);
-        var expected = new AppSettings
-        {
+        var expected = new AppSettings {
             PrimaryLanguageTag = "en-US",
             SecondaryLanguageTag = "fr-FR",
             AllLayoutsShortcut = ShortcutKind.None
@@ -68,8 +62,7 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void UnknownOlderSchemaVersionReturnsDefaults()
-    {
+    public void UnknownOlderSchemaVersionReturnsDefaults() {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "settings.json");
         File.WriteAllText(path, """
@@ -93,8 +86,7 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void VersionOneSettingsAreMigratedWithAdministratorSupportEnabled()
-    {
+    public void VersionOneSettingsAreMigratedWithAdministratorSupportEnabled() {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "settings.json");
         File.WriteAllText(path, """
@@ -118,8 +110,7 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void NewerSchemaVersionReturnsDefaults()
-    {
+    public void NewerSchemaVersionReturnsDefaults() {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "settings.json");
         File.WriteAllText(path, """
@@ -133,18 +124,16 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void SaveCleansUpTemporaryFileWhenMoveTargetIsLocked()
-    {
+    public void SaveCleansUpTemporaryFileWhenMoveTargetIsLocked() {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "settings.json");
         var tempPath = path + ".tmp";
 
-        using (var lockStream = new FileStream(
+        using(var lockStream = new FileStream(
             path,
             FileMode.Create,
             FileAccess.ReadWrite,
-            FileShare.None))
-        {
+            FileShare.None)) {
             Assert.ThrowsAny<Exception>(() =>
                 new SettingsStore(path).Save(new AppSettings()));
         }
@@ -152,10 +141,8 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.False(File.Exists(tempPath));
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_directory))
-        {
+    public void Dispose() {
+        if(Directory.Exists(_directory)) {
             Directory.Delete(_directory, recursive: true);
         }
     }

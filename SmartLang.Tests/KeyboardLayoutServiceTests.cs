@@ -1,7 +1,6 @@
 namespace SmartLang.Tests;
 
-public sealed class KeyboardLayoutServiceTests
-{
+public sealed class KeyboardLayoutServiceTests {
     private static InstalledLayout Layout(nint handle, string tag, string name = "") =>
         new(handle, tag, tag, string.IsNullOrEmpty(name) ? tag : name);
 
@@ -9,8 +8,7 @@ public sealed class KeyboardLayoutServiceTests
         new(new LanguageCatalog(), new RecordingInputProfileActivator());
 
     [Fact]
-    public void ResolveLayoutReturnsNullWhenLanguageIsNotInstalled()
-    {
+    public void ResolveLayoutReturnsNullWhenLanguageIsNotInstalled() {
         var service = CreateService();
         var layouts = new[] { Layout(1, "en-US") };
 
@@ -18,8 +16,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void ResolveLayoutReturnsFirstMatchWhenNothingRemembered()
-    {
+    public void ResolveLayoutReturnsFirstMatchWhenNothingRemembered() {
         var service = CreateService();
         var layouts = new[]
         {
@@ -34,8 +31,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void ResolveLayoutPrefersRememberedHandle()
-    {
+    public void ResolveLayoutPrefersRememberedHandle() {
         var service = CreateService();
         var layouts = new[]
         {
@@ -51,8 +47,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void ResolveLayoutFallsBackToFirstMatchWhenRememberedHandleIsNoLongerInstalled()
-    {
+    public void ResolveLayoutFallsBackToFirstMatchWhenRememberedHandleIsNoLongerInstalled() {
         var service = CreateService();
 
         service.Remember(Layout(99, "en-US", "Phantom"));
@@ -69,8 +64,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void RememberIgnoresNull()
-    {
+    public void RememberIgnoresNull() {
         var service = CreateService();
 
         service.Remember(null);
@@ -79,8 +73,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void RememberOverwritesPriorEntryForSameLanguage()
-    {
+    public void RememberOverwritesPriorEntryForSameLanguage() {
         var service = CreateService();
 
         service.Remember(Layout(10, "en-US"));
@@ -91,8 +84,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void RememberIsCaseInsensitiveOnLanguageTag()
-    {
+    public void RememberIsCaseInsensitiveOnLanguageTag() {
         var service = CreateService();
 
         var layouts = new[]
@@ -108,8 +100,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void ActivateLayoutUsesExactTargetHandle()
-    {
+    public void ActivateLayoutUsesExactTargetHandle() {
         var activator = new RecordingInputProfileActivator();
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
@@ -126,8 +117,7 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void ActivateLayoutDoesNothingWhenTargetIsAlreadyActive()
-    {
+    public void ActivateLayoutDoesNothingWhenTargetIsAlreadyActive() {
         var activator = new RecordingInputProfileActivator();
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
@@ -142,10 +132,8 @@ public sealed class KeyboardLayoutServiceTests
     }
 
     [Fact]
-    public void ActivateLayoutReturnsActivatorFailure()
-    {
-        var activator = new RecordingInputProfileActivator
-        {
+    public void ActivateLayoutReturnsActivatorFailure() {
+        var activator = new RecordingInputProfileActivator {
             Result = false
         };
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
@@ -160,8 +148,7 @@ public sealed class KeyboardLayoutServiceTests
         Assert.Equal((nint)20, activator.ActivatedHandle);
     }
 
-    private sealed class RecordingInputProfileActivator : IInputProfileActivator
-    {
+    private sealed class RecordingInputProfileActivator: IInputProfileActivator {
         public bool Result { get; init; } = true;
 
         public nint? ActivatedHandle { get; private set; }
@@ -173,16 +160,14 @@ public sealed class KeyboardLayoutServiceTests
         public bool ActivateKeyboardLayout(
             uint threadId,
             nint targetWindow,
-            nint layoutHandle)
-        {
+            nint layoutHandle) {
             ThreadId = threadId;
             TargetWindow = targetWindow;
             ActivatedHandle = layoutHandle;
             return Result;
         }
 
-        public void Dispose()
-        {
+        public void Dispose() {
         }
     }
 }

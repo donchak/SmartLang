@@ -1,7 +1,6 @@
 namespace SmartLang;
 
-public sealed class SingleInstanceCoordinator : IDisposable
-{
+public sealed class SingleInstanceCoordinator: IDisposable {
     private const string MutexName = @"Local\SmartLang.Application";
     private const string OpenEventName = @"Local\SmartLang.OpenSettings";
 
@@ -10,8 +9,7 @@ public sealed class SingleInstanceCoordinator : IDisposable
     private readonly EventWaitHandle _stopEvent = new(false, EventResetMode.ManualReset);
     private Thread? _listenerThread;
 
-    public SingleInstanceCoordinator()
-    {
+    public SingleInstanceCoordinator() {
         _mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
         IsFirstInstance = createdNew;
         _openEvent = new EventWaitHandle(
@@ -23,45 +21,36 @@ public sealed class SingleInstanceCoordinator : IDisposable
 
     public bool IsFirstInstance { get; }
 
-    public void StartListening(Action openSettings)
-    {
-        if (!IsFirstInstance || _listenerThread is not null)
-        {
+    public void StartListening(Action openSettings) {
+        if(!IsFirstInstance || _listenerThread is not null) {
             return;
         }
 
-        _listenerThread = new Thread(() =>
-        {
+        _listenerThread = new Thread(() => {
             var handles = new WaitHandle[] { _openEvent, _stopEvent };
-            while (WaitHandle.WaitAny(handles) == 0)
-            {
+            while(WaitHandle.WaitAny(handles) == 0) {
                 openSettings();
             }
-        })
-        {
+        }) {
             IsBackground = true,
             Name = "SmartLang single-instance listener"
         };
         _listenerThread.Start();
     }
 
-    public void SignalExistingInstance()
-    {
-        if (!IsFirstInstance)
-        {
+    public void SignalExistingInstance() {
+        if(!IsFirstInstance) {
             _openEvent.Set();
         }
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         _stopEvent.Set();
         _listenerThread?.Join(TimeSpan.FromSeconds(1));
         _openEvent.Dispose();
         _stopEvent.Dispose();
 
-        if (IsFirstInstance)
-        {
+        if(IsFirstInstance) {
             _mutex.ReleaseMutex();
         }
 

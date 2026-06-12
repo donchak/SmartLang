@@ -1,7 +1,6 @@
 namespace SmartLang;
 
-public enum ShortcutKind
-{
+public enum ShortcutKind {
     None,
     CtrlShift,
     WinSpace

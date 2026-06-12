@@ -6,13 +6,11 @@ using System.Runtime.InteropServices;
 
 namespace SmartLang;
 
-public sealed class BrokerClient
-{
+public sealed class BrokerClient {
     private readonly string _expectedExecutablePath;
     private readonly string _expectedVersion;
 
-    public BrokerClient(string expectedExecutablePath, string expectedVersion)
-    {
+    public BrokerClient(string expectedExecutablePath, string expectedVersion) {
         _expectedExecutablePath = Path.GetFullPath(expectedExecutablePath);
         _expectedVersion = expectedVersion;
     }
@@ -20,8 +18,7 @@ public sealed class BrokerClient
     public async Task<BrokerResponse> SendAsync(
         BrokerCommand command,
         AppSettings? settings = null,
-        TimeSpan? timeout = null)
-    {
+        TimeSpan? timeout = null) {
         using var cancellation = new CancellationTokenSource(
             timeout ?? TimeSpan.FromSeconds(2));
         await using var pipe = new NamedPipeClientStream(
@@ -44,27 +41,23 @@ public sealed class BrokerClient
             pipe,
             cancellation.Token);
 
-        if (response.ProtocolVersion != BrokerProtocol.CurrentVersion ||
-            response.RequestId != request.RequestId)
-        {
+        if(response.ProtocolVersion != BrokerProtocol.CurrentVersion ||
+            response.RequestId != request.RequestId) {
             throw new InvalidDataException("Broker response identity is invalid.");
         }
 
-        if (!string.Equals(
+        if(!string.Equals(
             response.Status.Version,
             _expectedVersion,
-            StringComparison.Ordinal))
-        {
+            StringComparison.Ordinal)) {
             throw new InvalidDataException("The SmartLang broker version does not match the tray.");
         }
 
         return response;
     }
 
-    private void VerifyServer(SafePipeHandle pipeHandle)
-    {
-        if (!NativeMethods.GetNamedPipeServerProcessId(pipeHandle, out var processId))
-        {
+    private void VerifyServer(SafePipeHandle pipeHandle) {
+        if(!NativeMethods.GetNamedPipeServerProcessId(pipeHandle, out var processId)) {
             throw new Win32Exception(
                 Marshal.GetLastWin32Error(),
                 "Could not identify the SmartLang broker process.");
@@ -74,30 +67,26 @@ public sealed class BrokerClient
             NativeMethods.ProcessQueryLimitedInformation,
             false,
             processId);
-        if (processHandle.IsInvalid)
-        {
+        if(processHandle.IsInvalid) {
             throw new Win32Exception(
                 Marshal.GetLastWin32Error(),
                 "Could not inspect the SmartLang broker process.");
         }
 
         var path = NativeMethods.QueryProcessImagePath(processHandle);
-        if (!string.Equals(
+        if(!string.Equals(
             Path.GetFullPath(path),
             _expectedExecutablePath,
-            StringComparison.OrdinalIgnoreCase))
-        {
+            StringComparison.OrdinalIgnoreCase)) {
             throw new InvalidDataException("The pipe server is not the installed SmartLang broker.");
         }
 
-        if (!NativeMethods.IsProcessElevated(processHandle))
-        {
+        if(!NativeMethods.IsProcessElevated(processHandle)) {
             throw new InvalidDataException("The SmartLang broker is not elevated.");
         }
 
-        if (!NativeMethods.ProcessIdToSessionId(processId, out var sessionId) ||
-            sessionId != (uint)Process.GetCurrentProcess().SessionId)
-        {
+        if(!NativeMethods.ProcessIdToSessionId(processId, out var sessionId) ||
+            sessionId != (uint)Process.GetCurrentProcess().SessionId) {
             throw new InvalidDataException("The SmartLang broker is running in another session.");
         }
     }

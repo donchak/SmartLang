@@ -320,15 +320,12 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
     }
 }
 
-internal static class NativeHookShadowCopy
-{
+internal static class NativeHookShadowCopy {
     private const string DirectoryName = "NativeHooks";
 
     internal static (string Directory, string LibraryPath) Create(
-        string sourcePath)
-    {
-        if (!File.Exists(sourcePath))
-        {
+        string sourcePath) {
+        if(!File.Exists(sourcePath)) {
             throw new FileNotFoundException(
                 "The native hook library was not found.",
                 sourcePath);
@@ -346,30 +343,23 @@ internal static class NativeHookShadowCopy
         var destinationPath = Path.Combine(
             directory,
             Path.GetFileName(sourcePath));
-        try
-        {
+        try {
             File.Copy(sourcePath, destinationPath, overwrite: false);
             return (directory, destinationPath);
-        }
-        catch
-        {
+        } catch {
             TryDelete(directory);
             throw;
         }
     }
 
-    internal static void CleanupStaleCopies()
-    {
+    internal static void CleanupStaleCopies() {
         var root = GetRootDirectory();
-        if (!Directory.Exists(root))
-        {
+        if(!Directory.Exists(root)) {
             return;
         }
 
-        foreach (var directory in Directory.EnumerateDirectories(root))
-        {
-            if (IsOwnedByLiveProcess(directory))
-            {
+        foreach(var directory in Directory.EnumerateDirectories(root)) {
+            if(IsOwnedByLiveProcess(directory)) {
                 continue;
             }
 
@@ -377,65 +367,46 @@ internal static class NativeHookShadowCopy
         }
     }
 
-    internal static void TryDelete(string directory)
-    {
-        try
-        {
+    internal static void TryDelete(string directory) {
+        try {
             Directory.Delete(directory, recursive: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
+        } catch(IOException) {
+        } catch(UnauthorizedAccessException) {
         }
     }
 
-    private static string GetRootDirectory()
-    {
+    private static string GetRootDirectory() {
         var baseDirectory = ProcessSecurity.IsCurrentProcessElevated()
             ? Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)
             : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         return Path.Combine(baseDirectory, "SmartLang", DirectoryName);
     }
 
-    private static bool IsOwnedByLiveProcess(string directory)
-    {
+    private static bool IsOwnedByLiveProcess(string directory) {
         var ownerPath = Path.Combine(directory, ".owner");
-        if (!File.Exists(ownerPath))
-        {
+        if(!File.Exists(ownerPath)) {
             return false;
         }
 
-        try
-        {
+        try {
             var text = File.ReadAllText(ownerPath);
-            if (!int.TryParse(
+            if(!int.TryParse(
                 text,
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
-                out var processId))
-            {
+                out var processId)) {
                 return false;
             }
 
             using var process = Process.GetProcessById(processId);
             return !process.HasExited;
-        }
-        catch (ArgumentException)
-        {
+        } catch(ArgumentException) {
             return false;
-        }
-        catch (InvalidOperationException)
-        {
+        } catch(InvalidOperationException) {
             return false;
-        }
-        catch (IOException)
-        {
+        } catch(IOException) {
             return true;
-        }
-        catch (UnauthorizedAccessException)
-        {
+        } catch(UnauthorizedAccessException) {
             return true;
         }
     }

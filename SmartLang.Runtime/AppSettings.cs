@@ -1,7 +1,6 @@
 namespace SmartLang;
 
-public sealed class AppSettings
-{
+public sealed class AppSettings {
     public const int CurrentVersion = 2;
 
     public int Version { get; set; } = CurrentVersion;
@@ -18,8 +17,7 @@ public sealed class AppSettings
 
     public bool AdministratorAppSupport { get; set; } = true;
 
-    public AppSettings Copy() => new()
-    {
+    public AppSettings Copy() => new() {
         Version = Version,
         PrimaryLanguageTag = PrimaryLanguageTag,
         SecondaryLanguageTag = SecondaryLanguageTag,
@@ -28,4 +26,4 @@ public sealed class AppSettings
         StartWithWindows = StartWithWindows,
         AdministratorAppSupport = AdministratorAppSupport
     };
-}
+}|
