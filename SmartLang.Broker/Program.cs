@@ -6,15 +6,14 @@ namespace SmartLang.Broker;
 
 internal static class Program {
     [STAThread]
-    private static int Main(string[] args) {
+    static int Main(string[] args) {
         ApplicationConfiguration.Initialize();
         if(TryHandleSetupCommand(args, out var exitCode)) {
             return exitCode;
         }
 
         if(args.Length != 0) {
-            AppLog.Write(
-                $"Broker rejected an unsupported command line with {args.Length} argument(s).");
+            AppLog.Write($"Broker rejected an unsupported command line with {args.Length} argument(s).");
             return 87;
         }
 
@@ -30,7 +29,7 @@ internal static class Program {
         return 0;
     }
 
-    private static bool TryHandleSetupCommand(string[] args, out int exitCode) {
+    static bool TryHandleSetupCommand(string[] args, out int exitCode) {
         exitCode = 0;
         if(args.Length != 2 ||
             args[0] is not ("--install-tasks" or "--remove-tasks")) {
@@ -51,31 +50,25 @@ internal static class Program {
                         args[1]);
                 } catch(Exception exception) {
                     AppLog.Write(
-                        $"Administrator task registration is unavailable; " +
+                        "Administrator task registration is unavailable; " +
                         $"registering tray fallback only: {exception.Message}");
-                    taskManager.RegisterTray(
-                        trayPath,
-                        startWithWindows: true,
-                        args[1]);
+                    taskManager.RegisterTray(trayPath, startWithWindows: true, args[1]);
                 }
             } else {
                 taskManager.Stop(args[1]);
                 taskManager.Remove(args[1]);
             }
         } catch(Exception exception) {
-            AppLog.Write(
-                $"Setup command {args[0]} failed with " +
-                $"{exception.GetType().Name}: {exception.Message}");
+            AppLog.Write($"Setup command {args[0]} failed with " + $"{exception.GetType().Name}: {exception.Message}");
             exitCode = 1;
         }
 
         return true;
     }
 
-    private static string BuildMutexName() {
+    static string BuildMutexName() {
         var sid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
-        var hash = Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(sid)))[..16];
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sid)))[..16];
         var sessionId = System.Diagnostics.Process.GetCurrentProcess().SessionId;
         return $@"Local\SmartLang.Broker.{sessionId}.{hash}";
     }

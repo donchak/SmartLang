@@ -3,8 +3,7 @@ namespace SmartLang.Tests;
 public sealed class ProcessSecurityTests {
     [Fact]
     public void ProgramFilesSubdirectoryIsProtectedInstallation() {
-        var programFiles = Environment.GetFolderPath(
-            Environment.SpecialFolder.ProgramFiles);
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var path = Path.Combine(programFiles, "SmartLang");
 
         Assert.True(ProcessSecurity.IsProtectedInstallation(path));
@@ -19,8 +18,7 @@ public sealed class ProcessSecurityTests {
 
     [Fact]
     public void SimilarProgramFilesPrefixIsNotAccepted() {
-        var programFiles = Environment.GetFolderPath(
-            Environment.SpecialFolder.ProgramFiles);
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var path = programFiles + "-Untrusted";
 
         Assert.False(ProcessSecurity.IsProtectedInstallation(path));

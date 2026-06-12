@@ -5,19 +5,19 @@ using System.Text;
 namespace SmartLang;
 
 public sealed class HookRuntimeController: IDisposable {
-    private readonly Action<Action> _dispatch;
-    private readonly Action<string> _failure;
-    private Mutex? _ownershipMutex;
-    private KeyboardLayoutService? _layoutService;
-    private KeyboardHook? _keyboardHook;
-    private AppSettings? _settings;
+    readonly Action<Action> dispatch;
+    readonly Action<string> failure;
+    Mutex? ownershipMutex;
+    KeyboardLayoutService? layoutService;
+    KeyboardHook? keyboardHook;
+    AppSettings? settings;
 
     public HookRuntimeController(Action<Action> dispatch, Action<string> failure) {
-        _dispatch = dispatch;
-        _failure = failure;
+        this.dispatch = dispatch;
+        this.failure = failure;
     }
 
-    public bool IsRunning => _keyboardHook is not null;
+    public bool IsRunning => keyboardHook is not null;
 
     public bool TryStart(AppSettings settings) {
         if(IsRunning) {
@@ -38,21 +38,21 @@ public sealed class HookRuntimeController: IDisposable {
                 return false;
             }
 
-            _settings = settings.Copy();
-            _layoutService = new KeyboardLayoutService(new LanguageCatalog());
-            _keyboardHook = new KeyboardHook(
-                GetEnabledShortcuts(_settings),
-                shortcut => _dispatch(() => HandleShortcut(shortcut)));
-            _keyboardHook.Start();
-            _ownershipMutex = ownershipMutex;
+            this.settings = settings.Copy();
+            layoutService = new KeyboardLayoutService(new LanguageCatalog());
+            keyboardHook = new KeyboardHook(
+                GetEnabledShortcuts(this.settings),
+                shortcut => dispatch(() => HandleShortcut(shortcut)));
+            keyboardHook.Start();
+            this.ownershipMutex = ownershipMutex;
             AppLog.Write("Hook runtime acquired input ownership.");
             return true;
         } catch {
-            _keyboardHook?.Dispose();
-            _keyboardHook = null;
-            _layoutService?.Dispose();
-            _layoutService = null;
-            _settings = null;
+            keyboardHook?.Dispose();
+            keyboardHook = null;
+            layoutService?.Dispose();
+            layoutService = null;
+            this.settings = null;
             if(acquired) {
                 ownershipMutex.ReleaseMutex();
             }
@@ -67,23 +67,23 @@ public sealed class HookRuntimeController: IDisposable {
         return TryStart(settings);
     }
 
-    public void Refresh() => _keyboardHook?.Refresh();
+    public void Refresh() => keyboardHook?.Refresh();
 
     public void Stop() {
-        _keyboardHook?.Dispose();
-        _keyboardHook = null;
-        _layoutService?.Dispose();
-        _layoutService = null;
-        _settings = null;
+        keyboardHook?.Dispose();
+        keyboardHook = null;
+        layoutService?.Dispose();
+        layoutService = null;
+        settings = null;
 
-        if(_ownershipMutex is not null) {
+        if(ownershipMutex is not null) {
             try {
-                _ownershipMutex.ReleaseMutex();
+                ownershipMutex.ReleaseMutex();
             } catch(ApplicationException) {
             }
 
-            _ownershipMutex.Dispose();
-            _ownershipMutex = null;
+            ownershipMutex.Dispose();
+            ownershipMutex = null;
             AppLog.Write("Hook runtime released input ownership.");
         }
     }
@@ -93,29 +93,28 @@ public sealed class HookRuntimeController: IDisposable {
         GC.SuppressFinalize(this);
     }
 
-    private void HandleShortcut(ShortcutKind shortcut) {
-        if(_settings is null || _layoutService is null) {
+    void HandleShortcut(ShortcutKind shortcut) {
+        if(settings is null || layoutService is null) {
             return;
         }
 
         try {
-            var switched = shortcut == _settings.PrimaryShortcut
-                ? _layoutService.TogglePrimaryLanguages(_settings)
-                : _settings.AllLayoutsShortcut != ShortcutKind.None &&
-                  shortcut == _settings.AllLayoutsShortcut &&
-                  _layoutService.CycleAllLayouts();
+            var switched = shortcut == settings.PrimaryShortcut
+                ? layoutService.TogglePrimaryLanguages(settings)
+                : settings.AllLayoutsShortcut != ShortcutKind.None &&
+                  shortcut == settings.AllLayoutsShortcut &&
+                  layoutService.CycleAllLayouts();
 
             if(!switched) {
-                _failure($"Windows did not accept the {shortcut} layout change.");
+                failure($"Windows did not accept the {shortcut} layout change.");
             }
         } catch(Exception exception) {
-            AppLog.Write(
-                $"Shortcut {shortcut} failed with {exception.GetType().Name}: {exception.Message}");
-            _failure($"Unexpected language-switch error: {exception.Message}");
+            AppLog.Write($"Shortcut {shortcut} failed with {exception.GetType().Name}: {exception.Message}");
+            failure($"Unexpected language-switch error: {exception.Message}");
         }
     }
 
-    private static IReadOnlyCollection<ShortcutKind> GetEnabledShortcuts(AppSettings settings) {
+    static IReadOnlyCollection<ShortcutKind> GetEnabledShortcuts(AppSettings settings) {
         var shortcuts = new HashSet<ShortcutKind> { settings.PrimaryShortcut };
         if(settings.AllLayoutsShortcut != ShortcutKind.None) {
             shortcuts.Add(settings.AllLayoutsShortcut);
@@ -124,7 +123,7 @@ public sealed class HookRuntimeController: IDisposable {
         return shortcuts;
     }
 
-    private static string BuildMutexName() {
+    static string BuildMutexName() {
         var sid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
         var sessionId = Environment.ProcessId;
         try {
@@ -132,8 +131,7 @@ public sealed class HookRuntimeController: IDisposable {
         } catch(InvalidOperationException) {
         }
 
-        var hash = Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(sid)))[..16];
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sid)))[..16];
         return $@"Local\SmartLang.HookOwner.{sessionId}.{hash}";
     }
 }

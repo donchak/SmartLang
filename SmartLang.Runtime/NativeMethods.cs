@@ -32,8 +32,8 @@ internal static class NativeMethods {
     internal const uint KeyeventfExtendedKey = 0x0001;
     internal const uint KeyeventfKeyUp = 0x0002;
     internal const uint ProcessQueryLimitedInformation = 0x1000;
-    private const uint TokenQuery = 0x0008;
-    private const int TokenElevation = 20;
+    const uint TokenQuery = 0x0008;
+    const int TokenElevation = 20;
 
     internal delegate nint LowLevelKeyboardProc(int code, nint wParam, nint lParam);
     internal delegate nint LowLevelMouseProc(int code, nint wParam, nint lParam);
@@ -135,14 +135,14 @@ internal static class NativeMethods {
 
     [DllImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool OpenProcessToken(
+    static extern bool OpenProcessToken(
         SafeProcessHandle processHandle,
         uint desiredAccess,
         out SafeFileHandle tokenHandle);
 
     [DllImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetTokenInformation(
+    static extern bool GetTokenInformation(
         SafeFileHandle tokenHandle,
         int tokenInformationClass,
         out TokenElevationData tokenInformation,
@@ -175,7 +175,7 @@ internal static class NativeMethods {
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct TokenElevationData {
+    struct TokenElevationData {
         internal int TokenIsElevated;
     }
 

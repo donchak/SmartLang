@@ -26,4 +26,4 @@ public sealed class AppSettings {
         StartWithWindows = StartWithWindows,
         AdministratorAppSupport = AdministratorAppSupport
     };
-}|
+}

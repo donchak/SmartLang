@@ -11,10 +11,7 @@ public static class SettingsValidator {
             return "Select both primary languages.";
         }
 
-        if(string.Equals(
-            settings.PrimaryLanguageTag,
-            settings.SecondaryLanguageTag,
-            StringComparison.OrdinalIgnoreCase)) {
+        if(string.Equals(settings.PrimaryLanguageTag, settings.SecondaryLanguageTag, StringComparison.OrdinalIgnoreCase)) {
             return "The two primary languages must be different.";
         }
 

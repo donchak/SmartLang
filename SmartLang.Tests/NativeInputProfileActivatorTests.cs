@@ -9,8 +9,6 @@ public sealed class NativeInputProfileActivatorTests {
     public void CoreWindowDetectionIsExact(
         string className,
         bool expected) {
-        Assert.Equal(
-            expected,
-            NativeInputProfileActivator.IsCoreWindowClass(className));
+        Assert.Equal(expected, NativeInputProfileActivator.IsCoreWindowClass(className));
     }
 }

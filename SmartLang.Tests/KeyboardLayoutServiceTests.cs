@@ -1,10 +1,10 @@
 namespace SmartLang.Tests;
 
 public sealed class KeyboardLayoutServiceTests {
-    private static InstalledLayout Layout(nint handle, string tag, string name = "") =>
+    static InstalledLayout Layout(nint handle, string tag, string name = "") =>
         new(handle, tag, tag, string.IsNullOrEmpty(name) ? tag : name);
 
-    private static KeyboardLayoutService CreateService() =>
+    static KeyboardLayoutService CreateService() =>
         new(new LanguageCatalog(), new RecordingInputProfileActivator());
 
     [Fact]
@@ -104,11 +104,7 @@ public sealed class KeyboardLayoutServiceTests {
         var activator = new RecordingInputProfileActivator();
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
-        var result = service.ActivateLayout(
-            123,
-            (nint)456,
-            (nint)10,
-            (nint)20);
+        var result = service.ActivateLayout(123, (nint)456, (nint)10, (nint)20);
 
         Assert.True(result);
         Assert.Equal(123u, activator.ThreadId);
@@ -121,11 +117,7 @@ public sealed class KeyboardLayoutServiceTests {
         var activator = new RecordingInputProfileActivator();
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
-        var result = service.ActivateLayout(
-            123,
-            (nint)456,
-            (nint)20,
-            (nint)20);
+        var result = service.ActivateLayout(123, (nint)456, (nint)20, (nint)20);
 
         Assert.True(result);
         Assert.Null(activator.ActivatedHandle);
@@ -138,17 +130,13 @@ public sealed class KeyboardLayoutServiceTests {
         };
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);
 
-        var result = service.ActivateLayout(
-            123,
-            (nint)456,
-            (nint)10,
-            (nint)20);
+        var result = service.ActivateLayout(123, (nint)456, (nint)10, (nint)20);
 
         Assert.False(result);
         Assert.Equal((nint)20, activator.ActivatedHandle);
     }
 
-    private sealed class RecordingInputProfileActivator: IInputProfileActivator {
+    sealed class RecordingInputProfileActivator: IInputProfileActivator {
         public bool Result { get; init; } = true;
 
         public nint? ActivatedHandle { get; private set; }

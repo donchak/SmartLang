@@ -16,7 +16,9 @@
     <InternalsVisibleTo Include="SmartLang.Tests" />
   </ItemGroup>
 
-  <Target Name="BuildNativeHook" BeforeTargets="PrepareForBuild">
+  <Target Name="BuildNativeHook"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(DesignTimeBuild)' != 'true'">
     <PropertyGroup>
       <NativeHookProject>$(MSBuildProjectDirectory)\..\SmartLang.NativeHook\SmartLang.NativeHook.vcxproj</NativeHookProject>
       <NativeHostProject>$(MSBuildProjectDirectory)\..\SmartLang.NativeHost32\SmartLang.NativeHost32.vcxproj</NativeHostProject>

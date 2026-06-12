@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace SmartLang;
 
 public sealed class SettingsStore {
-    private static readonly JsonSerializerOptions JsonOptions = new() {
+    static readonly JsonSerializerOptions JsonOptions = new() {
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() }
     };
@@ -24,9 +24,7 @@ public sealed class SettingsStore {
                 return new AppSettings();
             }
 
-            var settings = JsonSerializer.Deserialize<AppSettings>(
-                File.ReadAllText(FilePath),
-                JsonOptions);
+            var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath), JsonOptions);
 
             return settings?.Version switch {
                 AppSettings.CurrentVersion => settings,
@@ -64,7 +62,7 @@ public sealed class SettingsStore {
         }
     }
 
-    private static AppSettings MigrateVersion1(AppSettings settings) {
+    static AppSettings MigrateVersion1(AppSettings settings) {
         settings.Version = AppSettings.CurrentVersion;
         settings.AdministratorAppSupport = true;
         return settings;

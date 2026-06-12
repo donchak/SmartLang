@@ -14,16 +14,14 @@ public static class ProcessSecurity {
         var fullPath = Path.GetFullPath(baseDirectory)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
             Path.DirectorySeparatorChar;
-        var programFiles = Environment.GetFolderPath(
-            Environment.SpecialFolder.ProgramFiles);
-        var programFilesX86 = Environment.GetFolderPath(
-            Environment.SpecialFolder.ProgramFilesX86);
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
         return IsUnder(fullPath, programFiles) ||
             IsUnder(fullPath, programFilesX86);
     }
 
-    private static bool IsUnder(string fullPath, string parentDirectory) {
+    static bool IsUnder(string fullPath, string parentDirectory) {
         if(string.IsNullOrWhiteSpace(parentDirectory)) {
             return false;
         }

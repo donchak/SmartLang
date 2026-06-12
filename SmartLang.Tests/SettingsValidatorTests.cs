@@ -1,7 +1,7 @@
 namespace SmartLang.Tests;
 
 public sealed class SettingsValidatorTests {
-    private static readonly LanguageOption[] Languages =
+    static readonly LanguageOption[] Languages =
     [
         new("en-US", "English"),
         new("fr-FR", "French")
@@ -17,9 +17,7 @@ public sealed class SettingsValidatorTests {
         var settings = CreateValidSettings();
         settings.SecondaryLanguageTag = settings.PrimaryLanguageTag;
 
-        Assert.Equal(
-            "The two primary languages must be different.",
-            SettingsValidator.Validate(settings, Languages));
+        Assert.Equal("The two primary languages must be different.", SettingsValidator.Validate(settings, Languages));
     }
 
     [Fact]
@@ -27,9 +25,7 @@ public sealed class SettingsValidatorTests {
         var settings = CreateValidSettings();
         settings.AllLayoutsShortcut = settings.PrimaryShortcut;
 
-        Assert.Equal(
-            "The two commands must use different shortcuts.",
-            SettingsValidator.Validate(settings, Languages));
+        Assert.Equal("The two commands must use different shortcuts.", SettingsValidator.Validate(settings, Languages));
     }
 
     [Fact]
@@ -45,9 +41,7 @@ public sealed class SettingsValidatorTests {
         var settings = CreateValidSettings();
         settings.PrimaryShortcut = ShortcutKind.None;
 
-        Assert.Equal(
-            "Select a shortcut for switching primary languages.",
-            SettingsValidator.Validate(settings, Languages));
+        Assert.Equal("Select a shortcut for switching primary languages.", SettingsValidator.Validate(settings, Languages));
     }
 
     [Fact]
@@ -64,7 +58,7 @@ public sealed class SettingsValidatorTests {
             SettingsValidator.Validate(settings, languagesAfterRemoval));
     }
 
-    private static AppSettings CreateValidSettings() => new() {
+    static AppSettings CreateValidSettings() => new() {
         PrimaryLanguageTag = "en-US",
         SecondaryLanguageTag = "fr-FR",
         PrimaryShortcut = ShortcutKind.CtrlShift,

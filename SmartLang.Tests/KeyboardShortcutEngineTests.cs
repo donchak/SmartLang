@@ -28,9 +28,7 @@ public sealed class KeyboardShortcutEngineTests {
 
         engine.Process(control, isKeyDown: true);
         engine.Process(shift, isKeyDown: true);
-        Assert.Equal(
-            ShortcutKind.CtrlShift,
-            engine.Process(shift, isKeyDown: false).TriggeredShortcut);
+        Assert.Equal(ShortcutKind.CtrlShift, engine.Process(shift, isKeyDown: false).TriggeredShortcut);
 
         Assert.True(engine.Process(shift, isKeyDown: true).Suppress);
         var secondTrigger = engine.Process(shift, isKeyDown: false);
@@ -48,22 +46,14 @@ public sealed class KeyboardShortcutEngineTests {
         engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true);
         Assert.Equal(
             ShortcutKind.CtrlShift,
-            engine.Process(
-                KeyboardShortcutEngine.VkLControl,
-                isKeyDown: false).TriggeredShortcut);
+            engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: false).TriggeredShortcut);
 
-        Assert.True(engine.Process(
-            KeyboardShortcutEngine.VkLControl,
-            isKeyDown: true).Suppress);
-        var secondTrigger = engine.Process(
-            KeyboardShortcutEngine.VkLControl,
-            isKeyDown: false);
+        Assert.True(engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true).Suppress);
+        var secondTrigger = engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: false);
 
         Assert.True(secondTrigger.Suppress);
         Assert.Equal(ShortcutKind.CtrlShift, secondTrigger.TriggeredShortcut);
-        Assert.True(engine.Process(
-            KeyboardShortcutEngine.VkLShift,
-            isKeyDown: false).Suppress);
+        Assert.True(engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: false).Suppress);
     }
 
     [Fact]
@@ -79,12 +69,8 @@ public sealed class KeyboardShortcutEngineTests {
         Assert.Null(escape.TriggeredShortcut);
         Assert.Collection(
             escape.ReplayEvents!,
-            item => Assert.Equal(
-                new SyntheticKeyEvent(KeyboardShortcutEngine.VkLControl, true),
-                item),
-            item => Assert.Equal(
-                new SyntheticKeyEvent(KeyboardShortcutEngine.VkLShift, true),
-                item));
+            item => Assert.Equal(new SyntheticKeyEvent(KeyboardShortcutEngine.VkLControl, true), item),
+            item => Assert.Equal(new SyntheticKeyEvent(KeyboardShortcutEngine.VkLShift, true), item));
 
         Assert.False(engine.Process(KeyboardShortcutEngine.VkLShift, false).Suppress);
         Assert.False(engine.Process(KeyboardShortcutEngine.VkLControl, false).Suppress);
@@ -99,9 +85,7 @@ public sealed class KeyboardShortcutEngineTests {
         var keyDown = engine.Process(vkC, true);
 
         Assert.False(keyDown.Suppress);
-        Assert.Equal(
-            [new SyntheticKeyEvent(KeyboardShortcutEngine.VkLControl, true)],
-            keyDown.ReplayEvents);
+        Assert.Equal([new SyntheticKeyEvent(KeyboardShortcutEngine.VkLControl, true)], keyDown.ReplayEvents);
         Assert.False(engine.Process(KeyboardShortcutEngine.VkLControl, false).Suppress);
     }
 
@@ -128,24 +112,14 @@ public sealed class KeyboardShortcutEngineTests {
         var engine = new KeyboardShortcutEngine();
 
         engine.Process(windowsKey, isKeyDown: true);
-        Assert.Equal(
-            ShortcutKind.WinSpace,
-            engine.Process(
-                KeyboardShortcutEngine.VkSpace,
-                isKeyDown: true).TriggeredShortcut);
-        Assert.True(engine.Process(
-            KeyboardShortcutEngine.VkSpace,
-            isKeyDown: false).Suppress);
+        Assert.Equal(ShortcutKind.WinSpace, engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: true).TriggeredShortcut);
+        Assert.True(engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: false).Suppress);
 
-        var secondTrigger = engine.Process(
-            KeyboardShortcutEngine.VkSpace,
-            isKeyDown: true);
+        var secondTrigger = engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: true);
 
         Assert.True(secondTrigger.Suppress);
         Assert.Equal(ShortcutKind.WinSpace, secondTrigger.TriggeredShortcut);
-        Assert.True(engine.Process(
-            KeyboardShortcutEngine.VkSpace,
-            isKeyDown: false).Suppress);
+        Assert.True(engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: false).Suppress);
         Assert.True(engine.Process(windowsKey, isKeyDown: false).Suppress);
     }
 
@@ -161,30 +135,18 @@ public sealed class KeyboardShortcutEngineTests {
         var keyDown = engine.Process(vkE, isKeyDown: true);
 
         Assert.False(keyDown.Suppress);
-        Assert.Equal(
-            [new SyntheticKeyEvent(KeyboardShortcutEngine.VkLWin, true)],
-            keyDown.ReplayEvents);
-        Assert.False(engine.Process(
-            KeyboardShortcutEngine.VkLWin,
-            isKeyDown: false).Suppress);
+        Assert.Equal([new SyntheticKeyEvent(KeyboardShortcutEngine.VkLWin, true)], keyDown.ReplayEvents);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLWin, isKeyDown: false).Suppress);
     }
 
     [Fact]
     public void DisabledWinSpacePassesThroughUnchanged() {
         var engine = new KeyboardShortcutEngine([ShortcutKind.CtrlShift]);
 
-        var windowsDown = engine.Process(
-            KeyboardShortcutEngine.VkLWin,
-            isKeyDown: true);
-        var spaceDown = engine.Process(
-            KeyboardShortcutEngine.VkSpace,
-            isKeyDown: true);
-        var spaceUp = engine.Process(
-            KeyboardShortcutEngine.VkSpace,
-            isKeyDown: false);
-        var windowsUp = engine.Process(
-            KeyboardShortcutEngine.VkLWin,
-            isKeyDown: false);
+        var windowsDown = engine.Process(KeyboardShortcutEngine.VkLWin, isKeyDown: true);
+        var spaceDown = engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: true);
+        var spaceUp = engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: false);
+        var windowsUp = engine.Process(KeyboardShortcutEngine.VkLWin, isKeyDown: false);
 
         Assert.False(windowsDown.Suppress);
         Assert.False(spaceDown.Suppress);
@@ -198,18 +160,10 @@ public sealed class KeyboardShortcutEngineTests {
     public void DisabledCtrlShiftPassesThroughUnchanged() {
         var engine = new KeyboardShortcutEngine([ShortcutKind.WinSpace]);
 
-        Assert.False(engine.Process(
-            KeyboardShortcutEngine.VkLControl,
-            isKeyDown: true).Suppress);
-        Assert.False(engine.Process(
-            KeyboardShortcutEngine.VkLShift,
-            isKeyDown: true).Suppress);
-        Assert.False(engine.Process(
-            KeyboardShortcutEngine.VkLShift,
-            isKeyDown: false).Suppress);
-        Assert.False(engine.Process(
-            KeyboardShortcutEngine.VkLControl,
-            isKeyDown: false).Suppress);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true).Suppress);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true).Suppress);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: false).Suppress);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: false).Suppress);
     }
 
     [Theory]
@@ -228,12 +182,7 @@ public sealed class KeyboardShortcutEngineTests {
         Assert.True(press.Suppress);
         Assert.True(release.Suppress);
         Assert.Null(release.TriggeredShortcut);
-        Assert.Equal(
-            [
-                new SyntheticKeyEvent(modifier, true),
-                new SyntheticKeyEvent(modifier, false)
-            ],
-            release.ReplayEvents);
+        Assert.Equal([new SyntheticKeyEvent(modifier, true), new SyntheticKeyEvent(modifier, false)], release.ReplayEvents);
     }
 
     [Fact]
@@ -243,9 +192,7 @@ public sealed class KeyboardShortcutEngineTests {
 
         // Control is pressed and buffered, but its key-up is never delivered
         // (e.g. the low-level hook was evicted mid-chord by Windows).
-        Assert.True(engine.Process(
-            KeyboardShortcutEngine.VkLControl,
-            isKeyDown: true).Suppress);
+        Assert.True(engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true).Suppress);
 
         // Reinstalling the hook resets the engine, so the stuck modifier is
         // forgotten rather than corrupting the next keystroke.
@@ -275,9 +222,7 @@ public sealed class KeyboardShortcutEngineTests {
         var pointerInput = engine.ProcessPointerInput();
 
         Assert.False(pointerInput.Suppress);
-        Assert.Equal(
-            [new SyntheticKeyEvent(modifier, true)],
-            pointerInput.ReplayEvents);
+        Assert.Equal([new SyntheticKeyEvent(modifier, true)], pointerInput.ReplayEvents);
         Assert.False(engine.Process(modifier, isKeyDown: false).Suppress);
     }
 
@@ -290,9 +235,7 @@ public sealed class KeyboardShortcutEngineTests {
         var physicalPointerInput = engine.ProcessPointerInput();
 
         Assert.Null(injectedPointerInput.ReplayEvents);
-        Assert.Equal(
-            [new SyntheticKeyEvent(KeyboardShortcutEngine.VkLShift, true)],
-            physicalPointerInput.ReplayEvents);
+        Assert.Equal([new SyntheticKeyEvent(KeyboardShortcutEngine.VkLShift, true)], physicalPointerInput.ReplayEvents);
     }
 
     [Fact]
@@ -304,12 +247,8 @@ public sealed class KeyboardShortcutEngineTests {
 
         var pointerInput = engine.ProcessPointerInput();
 
-        Assert.Equal(
-            [new SyntheticKeyEvent(KeyboardShortcutEngine.VkLControl, true)],
-            pointerInput.ReplayEvents);
-        Assert.False(engine.Process(
-            KeyboardShortcutEngine.VkLControl,
-            isKeyDown: false).Suppress);
+        Assert.Equal([new SyntheticKeyEvent(KeyboardShortcutEngine.VkLControl, true)], pointerInput.ReplayEvents);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: false).Suppress);
     }
 
     [Fact]

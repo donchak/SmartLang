@@ -6,13 +6,13 @@ using System.Text;
 namespace SmartLang;
 
 public sealed class ScheduledTaskManager {
-    private const int TaskActionExec = 0;
-    private const int TaskCreateOrUpdate = 6;
-    private const int TaskInstancesIgnoreNew = 2;
-    private const int TaskLogonInteractiveToken = 3;
-    private const int TaskRunLevelHighest = 1;
-    private const int TaskRunLevelLua = 0;
-    private const int TaskTriggerLogon = 9;
+    const int TaskActionExec = 0;
+    const int TaskCreateOrUpdate = 6;
+    const int TaskInstancesIgnoreNew = 2;
+    const int TaskLogonInteractiveToken = 3;
+    const int TaskRunLevelHighest = 1;
+    const int TaskRunLevelLua = 0;
+    const int TaskTriggerLogon = 9;
 
     public void Register(
         string trayExecutablePath,
@@ -110,7 +110,7 @@ public sealed class ScheduledTaskManager {
         }
     }
 
-    private static bool RunTask(
+    static bool RunTask(
         Func<string, string> taskNameFactory,
         string? userSid) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
@@ -150,7 +150,7 @@ public sealed class ScheduledTaskManager {
 
     internal static string BrokerTaskName(string userSid) => $"Broker-{HashSid(userSid)}";
 
-    private static dynamic CreateService() {
+    static dynamic CreateService() {
         var type = Type.GetTypeFromProgID("Schedule.Service")
             ?? throw new PlatformNotSupportedException("Task Scheduler 2.0 is unavailable.");
         dynamic service = Activator.CreateInstance(type)
@@ -159,7 +159,7 @@ public sealed class ScheduledTaskManager {
         return service;
     }
 
-    private static void RegisterTask(
+    static void RegisterTask(
         dynamic service,
         dynamic folder,
         string taskName,
@@ -202,19 +202,17 @@ public sealed class ScheduledTaskManager {
             BuildSecurityDescriptor(userSid));
     }
 
-    private static dynamic GetOrCreateFolder(dynamic service, string userSid) {
+    static dynamic GetOrCreateFolder(dynamic service, string userSid) {
         dynamic root = service.GetFolder("\\");
         try {
             return root.GetFolder("SmartLang");
         } catch(Exception exception) when(
               exception is COMException or FileNotFoundException) {
-            return root.CreateFolder(
-                "SmartLang",
-                BuildSecurityDescriptor(userSid));
+            return root.CreateFolder("SmartLang", BuildSecurityDescriptor(userSid));
         }
     }
 
-    private static void TryDelete(dynamic folder, string taskName) {
+    static void TryDelete(dynamic folder, string taskName) {
         try {
             folder.DeleteTask(taskName, 0);
         } catch(Exception exception) when(
@@ -222,7 +220,7 @@ public sealed class ScheduledTaskManager {
         }
     }
 
-    private static void TryStop(dynamic folder, string taskName) {
+    static void TryStop(dynamic folder, string taskName) {
         try {
             folder.GetTask(taskName).Stop(0);
         } catch(Exception exception) when(
@@ -230,12 +228,12 @@ public sealed class ScheduledTaskManager {
         }
     }
 
-    private static string HashSid(string userSid) =>
+    static string HashSid(string userSid) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(userSid)))[..16];
 
-    private static string BuildSecurityDescriptor(string userSid) => $"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGWGX;;;{userSid})";
+    static string BuildSecurityDescriptor(string userSid) => $"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;GRGWGX;;;{userSid})";
 
-    private static void Release(object? value) {
+    static void Release(object? value) {
         if(value is not null && Marshal.IsComObject(value)) {
             Marshal.FinalReleaseComObject(value);
         }

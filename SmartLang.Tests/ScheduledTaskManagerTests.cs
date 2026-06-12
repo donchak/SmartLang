@@ -17,8 +17,6 @@ public sealed class ScheduledTaskManagerTests {
 
     [Fact]
     public void DifferentUsersReceiveDifferentTaskNames() {
-        Assert.NotEqual(
-            ScheduledTaskManager.BrokerTaskName("S-1-5-21-1"),
-            ScheduledTaskManager.BrokerTaskName("S-1-5-21-2"));
+        Assert.NotEqual(ScheduledTaskManager.BrokerTaskName("S-1-5-21-1"), ScheduledTaskManager.BrokerTaskName("S-1-5-21-2"));
     }
 }

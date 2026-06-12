@@ -8,10 +8,7 @@ public sealed class LanguageSwitchPolicyTests {
     public void PrimaryTargetFollowsConfiguredToggleRule(
         string? current,
         string expected) {
-        var target = LanguageSwitchPolicy.GetPrimaryTargetLanguage(
-            current,
-            "en-US",
-            "fr-FR");
+        var target = LanguageSwitchPolicy.GetPrimaryTargetLanguage(current, "en-US", "fr-FR");
 
         Assert.Equal(expected, target);
     }
@@ -25,8 +22,6 @@ public sealed class LanguageSwitchPolicyTests {
         int currentIndex,
         int count,
         int expected) {
-        Assert.Equal(
-            expected,
-            LanguageSwitchPolicy.GetNextLayoutIndex(currentIndex, count));
+        Assert.Equal(expected, LanguageSwitchPolicy.GetNextLayoutIndex(currentIndex, count));
     }
 }

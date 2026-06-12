@@ -1,13 +1,11 @@
 namespace SmartLang.Tests;
 
 public sealed class SettingsStoreTests: IDisposable {
-    private readonly string _directory = Path.Combine(
-        Path.GetTempPath(),
-        $"SmartLang.Tests.{Guid.NewGuid():N}");
+    readonly string directory = Path.Combine(Path.GetTempPath(), $"SmartLang.Tests.{Guid.NewGuid():N}");
 
     [Fact]
     public void SettingsRoundTrip() {
-        var path = Path.Combine(_directory, "settings.json");
+        var path = Path.Combine(directory, "settings.json");
         var store = new SettingsStore(path);
         var expected = new AppSettings {
             PrimaryLanguageTag = "en-US",
@@ -27,15 +25,13 @@ public sealed class SettingsStoreTests: IDisposable {
         Assert.Equal(expected.PrimaryShortcut, actual.PrimaryShortcut);
         Assert.Equal(expected.AllLayoutsShortcut, actual.AllLayoutsShortcut);
         Assert.Equal(expected.StartWithWindows, actual.StartWithWindows);
-        Assert.Equal(
-            expected.AdministratorAppSupport,
-            actual.AdministratorAppSupport);
+        Assert.Equal(expected.AdministratorAppSupport, actual.AdministratorAppSupport);
     }
 
     [Fact]
     public void InvalidJsonReturnsDefaults() {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "settings.json");
         File.WriteAllText(path, "{not-json");
 
         var settings = new SettingsStore(path).Load();
@@ -47,7 +43,7 @@ public sealed class SettingsStoreTests: IDisposable {
 
     [Fact]
     public void NoneAllLayoutsShortcutRoundTrips() {
-        var path = Path.Combine(_directory, "settings.json");
+        var path = Path.Combine(directory, "settings.json");
         var store = new SettingsStore(path);
         var expected = new AppSettings {
             PrimaryLanguageTag = "en-US",
@@ -63,8 +59,8 @@ public sealed class SettingsStoreTests: IDisposable {
 
     [Fact]
     public void UnknownOlderSchemaVersionReturnsDefaults() {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "settings.json");
         File.WriteAllText(path, """
             {
               "Version": 0,
@@ -87,8 +83,8 @@ public sealed class SettingsStoreTests: IDisposable {
 
     [Fact]
     public void VersionOneSettingsAreMigratedWithAdministratorSupportEnabled() {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "settings.json");
         File.WriteAllText(path, """
             {
               "Version": 1,
@@ -111,8 +107,8 @@ public sealed class SettingsStoreTests: IDisposable {
 
     [Fact]
     public void NewerSchemaVersionReturnsDefaults() {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "settings.json");
         File.WriteAllText(path, """
             {"Version": 999, "PrimaryLanguageTag": "en-US"}
             """);
@@ -125,25 +121,20 @@ public sealed class SettingsStoreTests: IDisposable {
 
     [Fact]
     public void SaveCleansUpTemporaryFileWhenMoveTargetIsLocked() {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "settings.json");
         var tempPath = path + ".tmp";
 
-        using(var lockStream = new FileStream(
-            path,
-            FileMode.Create,
-            FileAccess.ReadWrite,
-            FileShare.None)) {
-            Assert.ThrowsAny<Exception>(() =>
-                new SettingsStore(path).Save(new AppSettings()));
+        using(var lockStream = new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.None)) {
+            Assert.ThrowsAny<Exception>(() => new SettingsStore(path).Save(new AppSettings()));
         }
 
         Assert.False(File.Exists(tempPath));
     }
 
     public void Dispose() {
-        if(Directory.Exists(_directory)) {
-            Directory.Delete(_directory, recursive: true);
+        if(Directory.Exists(directory)) {
+            Directory.Delete(directory, recursive: true);
         }
     }
 }

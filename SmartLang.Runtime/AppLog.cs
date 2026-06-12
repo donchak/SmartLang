@@ -1,8 +1,8 @@
 namespace SmartLang;
 
 internal static class AppLog {
-    private const long MaximumLength = 1_000_000;
-    private static readonly object Sync = new();
+    const long MaximumLength = 1_000_000;
+    static readonly object Sync = new();
 
     internal static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -22,7 +22,8 @@ internal static class AppLog {
 
                 File.AppendAllText(
                     FilePath,
-                    $"{DateTimeOffset.Now:O} [P{Environment.ProcessId}:T{Environment.CurrentManagedThreadId}] {message}{Environment.NewLine}");
+                    $"{DateTimeOffset.Now:O} [P{Environment.ProcessId}:" +
+                    $"T{Environment.CurrentManagedThreadId}] {message}{Environment.NewLine}");
             }
         } catch(Exception exception) when(
               exception is IOException or UnauthorizedAccessException) {

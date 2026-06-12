@@ -1,25 +1,22 @@
 namespace SmartLang.Tests;
 
 public sealed class NativeHookShadowCopyTests: IDisposable {
-    private readonly string _sourcePath = Path.Combine(
-        Path.GetTempPath(),
-        "SmartLang.Tests",
-        $"{Guid.NewGuid():N}.dll");
+    readonly string sourcePath = Path.Combine(Path.GetTempPath(), "SmartLang.Tests", $"{Guid.NewGuid():N}.dll");
 
     public NativeHookShadowCopyTests() {
-        Directory.CreateDirectory(Path.GetDirectoryName(_sourcePath)!);
-        File.WriteAllText(_sourcePath, "test");
+        Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+        File.WriteAllText(sourcePath, "test");
     }
 
     [Fact]
     public void CreateCopiesLibraryToUniqueDirectory() {
-        var (directory, libraryPath) = NativeHookShadowCopy.Create(_sourcePath);
+        var (directory, libraryPath) = NativeHookShadowCopy.Create(sourcePath);
 
         try {
             Assert.True(Directory.Exists(directory));
             Assert.True(File.Exists(libraryPath));
-            Assert.Equal(Path.GetFileName(_sourcePath), Path.GetFileName(libraryPath));
-            Assert.NotEqual(Path.GetDirectoryName(_sourcePath), directory);
+            Assert.Equal(Path.GetFileName(sourcePath), Path.GetFileName(libraryPath));
+            Assert.NotEqual(Path.GetDirectoryName(sourcePath), directory);
         } finally {
             NativeHookShadowCopy.TryDelete(directory);
         }
@@ -27,13 +24,9 @@ public sealed class NativeHookShadowCopyTests: IDisposable {
 
     [Fact]
     public void CleanupStaleCopiesLeavesLockedDirectoriesForNextRun() {
-        var (directory, libraryPath) = NativeHookShadowCopy.Create(_sourcePath);
+        var (directory, libraryPath) = NativeHookShadowCopy.Create(sourcePath);
 
-        using var stream = File.Open(
-            libraryPath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.None);
+        using var stream = File.Open(libraryPath, FileMode.Open, FileAccess.Read, FileShare.None);
 
         NativeHookShadowCopy.CleanupStaleCopies();
 
@@ -42,7 +35,7 @@ public sealed class NativeHookShadowCopyTests: IDisposable {
 
     public void Dispose() {
         try {
-            File.Delete(_sourcePath);
+            File.Delete(sourcePath);
         } catch(IOException) {
         } catch(UnauthorizedAccessException) {
         }

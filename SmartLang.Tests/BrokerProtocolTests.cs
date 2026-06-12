@@ -16,9 +16,7 @@ public sealed class BrokerProtocolTests {
 
         await BrokerProtocol.WriteAsync(stream, expected, CancellationToken.None);
         stream.Position = 0;
-        var actual = await BrokerProtocol.ReadAsync<BrokerRequest>(
-            stream,
-            CancellationToken.None);
+        var actual = await BrokerProtocol.ReadAsync<BrokerRequest>(stream, CancellationToken.None);
 
         Assert.Equal(expected.ProtocolVersion, actual.ProtocolVersion);
         Assert.Equal(expected.RequestId, actual.RequestId);
@@ -29,13 +27,10 @@ public sealed class BrokerProtocolTests {
 
     [Fact]
     public async Task InvalidFrameLengthIsRejected() {
-        await using var stream = new MemoryStream(
-            BitConverter.GetBytes(BrokerProtocol.MaximumMessageLength + 1));
+        await using var stream = new MemoryStream(BitConverter.GetBytes(BrokerProtocol.MaximumMessageLength + 1));
 
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            BrokerProtocol.ReadAsync<BrokerRequest>(
-                stream,
-                CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => BrokerProtocol.ReadAsync<BrokerRequest>(stream, CancellationToken.None));
     }
 
     [Fact]
@@ -49,8 +44,8 @@ public sealed class BrokerProtocolTests {
             });
         await using var stream = new MemoryStream();
 
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            BrokerProtocol.WriteAsync(stream, request, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => BrokerProtocol.WriteAsync(stream, request, CancellationToken.None));
         Assert.Equal(0, stream.Length);
     }
 }

@@ -5,10 +5,7 @@ public static class LanguageSwitchPolicy {
         string? currentLanguageTag,
         string primaryLanguageTag,
         string secondaryLanguageTag) {
-        return string.Equals(
-            currentLanguageTag,
-            primaryLanguageTag,
-            StringComparison.OrdinalIgnoreCase)
+        return string.Equals(currentLanguageTag, primaryLanguageTag, StringComparison.OrdinalIgnoreCase)
             ? secondaryLanguageTag
             : primaryLanguageTag;
     }
@@ -18,8 +15,6 @@ public static class LanguageSwitchPolicy {
             return -1;
         }
 
-        return currentIndex < 0 || currentIndex >= layoutCount - 1
-            ? 0
-            : currentIndex + 1;
+        return currentIndex < 0 || currentIndex >= layoutCount - 1 ? 0 : currentIndex + 1;
     }
 }

@@ -5,30 +5,30 @@ using System.Runtime.InteropServices;
 namespace SmartLang;
 
 public sealed class SmartLangApplicationContext: ApplicationContext {
-    private readonly SingleInstanceCoordinator _singleInstance;
-    private readonly SettingsStore _settingsStore = new();
-    private readonly ScheduledTaskManager _taskManager = new();
-    private readonly LanguageCatalog _languageCatalog = new();
-    private readonly Control _dispatcher = new();
-    private readonly Icon _applicationIcon;
-    private readonly NotifyIcon _notifyIcon;
-    private readonly System.Windows.Forms.Timer _healthTimer;
-    private readonly System.Windows.Forms.Timer _hookRefreshTimer;
-    private readonly HookRuntimeController _fallbackRuntime;
-    private readonly BrokerClient _brokerClient;
+    readonly SingleInstanceCoordinator singleInstance;
+    readonly SettingsStore settingsStore = new();
+    readonly ScheduledTaskManager taskManager = new();
+    readonly LanguageCatalog languageCatalog = new();
+    readonly Control dispatcher = new();
+    readonly Icon applicationIcon;
+    readonly NotifyIcon notifyIcon;
+    readonly System.Windows.Forms.Timer healthTimer;
+    readonly System.Windows.Forms.Timer hookRefreshTimer;
+    readonly HookRuntimeController fallbackRuntime;
+    readonly BrokerClient brokerClient;
 
-    private AppSettings _settings;
-    private SettingsForm? _settingsForm;
-    private bool _isExiting;
-    private bool _brokerCheckInProgress;
-    private string _administratorStatus = "Administrator support has not been checked.";
-    private bool _administratorStatusIsError;
+    AppSettings settings;
+    SettingsForm? settingsForm;
+    bool isExiting;
+    bool brokerCheckInProgress;
+    string administratorStatus = "Administrator support has not been checked.";
+    bool administratorStatusIsError;
 
     public SmartLangApplicationContext(SingleInstanceCoordinator singleInstance) {
-        _singleInstance = singleInstance;
-        _settings = _settingsStore.Load();
+        this.singleInstance = singleInstance;
+        settings = settingsStore.Load();
         var executablePath = Environment.ProcessPath;
-        _applicationIcon = executablePath is not null
+        applicationIcon = executablePath is not null
             ? Icon.ExtractAssociatedIcon(executablePath)
                 ?? (Icon)SystemIcons.Application.Clone()
             : (Icon)SystemIcons.Application.Clone();
@@ -37,56 +37,53 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         menu.Items.Add("Settings", null, (_, _) => OpenSettings());
         menu.Items.Add("Exit", null, async (_, _) => await ExitAsync());
 
-        _notifyIcon = new NotifyIcon {
-            Icon = _applicationIcon,
+        notifyIcon = new NotifyIcon {
+            Icon = applicationIcon,
             Text = "SmartLang",
             ContextMenuStrip = menu,
             Visible = true
         };
-        _notifyIcon.DoubleClick += (_, _) => OpenSettings();
+        notifyIcon.DoubleClick += (_, _) => OpenSettings();
 
-        _fallbackRuntime = new HookRuntimeController(
+        fallbackRuntime = new HookRuntimeController(
             Dispatch,
-            error => Dispatch(() => ShowNotification(
-                "Language switch failed",
-                error,
-                ToolTipIcon.Warning)));
-        _brokerClient = new BrokerClient(
+            error => Dispatch(() => ShowNotification("Language switch failed", error, ToolTipIcon.Warning)));
+        brokerClient = new BrokerClient(
             Path.Combine(AppContext.BaseDirectory, "SmartLang.Broker.exe"),
             Application.ProductVersion);
 
-        _healthTimer = new System.Windows.Forms.Timer { Interval = 3_000 };
-        _healthTimer.Tick += async (_, _) => await EvaluateBrokerAsync(startIfMissing: false);
-        _hookRefreshTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
-        _hookRefreshTimer.Tick += (_, _) => _fallbackRuntime.Refresh();
+        healthTimer = new System.Windows.Forms.Timer { Interval = 3_000 };
+        healthTimer.Tick += async (_, _) => await EvaluateBrokerAsync(startIfMissing: false);
+        hookRefreshTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
+        hookRefreshTimer.Tick += (_, _) => fallbackRuntime.Refresh();
 
-        _dispatcher.CreateControl();
-        _singleInstance.StartListening(() => Dispatch(OpenSettings));
-        _dispatcher.BeginInvoke(async () => await InitializeAsync());
+        dispatcher.CreateControl();
+        this.singleInstance.StartListening(() => Dispatch(OpenSettings));
+        dispatcher.BeginInvoke(async () => await InitializeAsync());
     }
 
     protected override void Dispose(bool disposing) {
         if(disposing) {
-            _healthTimer.Stop();
-            _healthTimer.Dispose();
-            _hookRefreshTimer.Stop();
-            _hookRefreshTimer.Dispose();
-            _fallbackRuntime.Dispose();
-            _settingsForm?.Dispose();
-            _notifyIcon.ContextMenuStrip?.Dispose();
-            _notifyIcon.Dispose();
-            _applicationIcon.Dispose();
-            _dispatcher.Dispose();
+            healthTimer.Stop();
+            healthTimer.Dispose();
+            hookRefreshTimer.Stop();
+            hookRefreshTimer.Dispose();
+            fallbackRuntime.Dispose();
+            settingsForm?.Dispose();
+            notifyIcon.ContextMenuStrip?.Dispose();
+            notifyIcon.Dispose();
+            applicationIcon.Dispose();
+            dispatcher.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
-    private async Task InitializeAsync() {
+    async Task InitializeAsync() {
         AppLog.Write(
-            $"Initializing tray. Primary={_settings.PrimaryLanguageTag}/{_settings.SecondaryLanguageTag}, " +
-            $"shortcuts={_settings.PrimaryShortcut}/{_settings.AllLayoutsShortcut}, " +
-            $"administratorSupport={_settings.AdministratorAppSupport}.");
+            $"Initializing tray. Primary={settings.PrimaryLanguageTag}/{settings.SecondaryLanguageTag}, " +
+            $"shortcuts={settings.PrimaryShortcut}/{settings.AllLayoutsShortcut}, " +
+            $"administratorSupport={settings.AdministratorAppSupport}.");
 
         var validationMessage = GetValidationMessage();
         if(validationMessage is not null) {
@@ -96,76 +93,73 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         }
 
         await EvaluateBrokerAsync(startIfMissing: true);
-        _healthTimer.Start();
+        healthTimer.Start();
     }
 
-    private void OpenSettings() => OpenSettings(GetValidationMessage());
+    void OpenSettings() => OpenSettings(GetValidationMessage());
 
-    private void OpenSettings(string? validationMessage) {
-        if(_isExiting) {
+    void OpenSettings(string? validationMessage) {
+        if(isExiting) {
             return;
         }
 
-        _settingsForm ??= CreateSettingsForm();
-        var languages = _languageCatalog.GetLanguageOptions();
-        _settingsForm.LoadSettings(_settings.Copy(), languages, validationMessage);
+        settingsForm ??= CreateSettingsForm();
+        var languages = languageCatalog.GetLanguageOptions();
+        settingsForm.LoadSettings(settings.Copy(), languages, validationMessage);
 
-        if(!_settingsForm.Visible) {
-            _settingsForm.Show();
+        if(!settingsForm.Visible) {
+            settingsForm.Show();
         }
 
-        if(_settingsForm.WindowState == FormWindowState.Minimized) {
-            _settingsForm.WindowState = FormWindowState.Normal;
+        if(settingsForm.WindowState == FormWindowState.Minimized) {
+            settingsForm.WindowState = FormWindowState.Normal;
         }
 
-        _settingsForm.BringToFront();
-        _settingsForm.Activate();
+        settingsForm.BringToFront();
+        settingsForm.Activate();
     }
 
-    private SettingsForm CreateSettingsForm() {
-        var form = new SettingsForm(_applicationIcon);
+    SettingsForm CreateSettingsForm() {
+        var form = new SettingsForm(applicationIcon);
         form.SetSaveHandler(SaveSettings);
-        form.SetRestartAdministratorSupportHandler(
-            async () => await RestartAdministratorSupportAsync());
-        form.SetAdministratorSupportStatus(
-            _administratorStatus,
-            _administratorStatusIsError);
+        form.SetRestartAdministratorSupportHandler(async () => await RestartAdministratorSupportAsync());
+        form.SetAdministratorSupportStatus(administratorStatus, administratorStatusIsError);
         return form;
     }
 
-    private string? SaveSettings(AppSettings settings) {
-        var languages = _languageCatalog.GetLanguageOptions();
+    string? SaveSettings(AppSettings settings) {
+        var languages = languageCatalog.GetLanguageOptions();
         var validationMessage = SettingsValidator.Validate(settings, languages);
         if(validationMessage is not null) {
             return validationMessage;
         }
 
         try {
-            _settingsStore.Save(settings);
+            settingsStore.Save(settings);
         } catch(Exception exception) when(
               exception is UnauthorizedAccessException or IOException or InvalidOperationException) {
             return $"Could not save settings: {exception.Message}";
         }
 
-        var previousAdministratorSupport = _settings.AdministratorAppSupport;
-        _settings = settings.Copy();
+        var previousAdministratorSupport = this.settings.AdministratorAppSupport;
+        this.settings = settings.Copy();
         _ = ApplySettingsAsync(previousAdministratorSupport);
         return null;
     }
 
-    private async Task ApplySettingsAsync(bool previousAdministratorSupport) {
-        _healthTimer.Start();
+    async Task ApplySettingsAsync(bool previousAdministratorSupport) {
+        healthTimer.Start();
         if(previousAdministratorSupport) {
-            var saveResponse = await TrySendAsync(BrokerCommand.SaveSettings, _settings);
+            var saveResponse = await TrySendAsync(BrokerCommand.SaveSettings, settings);
             if(saveResponse is not null) {
-                await TrySendAsync(BrokerCommand.ConfigureStartup, _settings);
-                if(!_settings.AdministratorAppSupport) {
+                await TrySendAsync(BrokerCommand.ConfigureStartup, settings);
+                if(!settings.AdministratorAppSupport) {
                     await TrySendAsync(BrokerCommand.Stop);
                 }
             }
         }
 
-        if(_settings.AdministratorAppSupport) {
+        if(settings.AdministratorAppSupport) {
             await EvaluateBrokerAsync(startIfMissing: true);
         } else {
             TryConfigureTasksLocally();
@@ -173,27 +167,26 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         }
     }
 
-    private async Task EvaluateBrokerAsync(bool startIfMissing) {
-        if(_isExiting || _brokerCheckInProgress) {
+    async Task EvaluateBrokerAsync(bool startIfMissing) {
+        if(isExiting || brokerCheckInProgress) {
             return;
         }
 
-        _brokerCheckInProgress = true;
+        brokerCheckInProgress = true;
         try {
-            if(!_settings.AdministratorAppSupport) {
+            if(!settings.AdministratorAppSupport) {
                 UseFallback("Administrator support is disabled.");
                 return;
             }
 
             if(!ProcessSecurity.IsProtectedInstallation(AppContext.BaseDirectory)) {
-                UseFallback(
-                    "Administrator support requires installation under Program Files.");
+                UseFallback("Administrator support requires installation under Program Files.");
                 return;
             }
 
             var response = await TrySendAsync(BrokerCommand.GetStatus);
             if(response is null && startIfMissing) {
-                if(!_taskManager.RunBroker()) {
+                if(!taskManager.RunBroker()) {
                     TryLaunchBrokerElevated();
                 }
 
@@ -221,7 +214,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
             if(response is { Success: true, Status.HooksActive: true }) {
                 StopFallback();
                 if(startIfMissing) {
-                    await TrySendAsync(BrokerCommand.ConfigureStartup, _settings);
+                    await TrySendAsync(BrokerCommand.ConfigureStartup, settings);
                 }
 
                 SetAdministratorStatus("Administrator application support is active.", isError: false);
@@ -229,30 +222,29 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
             }
 
             UseFallback(
-                response?.Error ?? response?.Status.LastError ??
+                response?.Error ??
+                response?.Status.LastError ??
                 "Administrator support could not acquire the input hooks.");
         } finally {
-            _brokerCheckInProgress = false;
+            brokerCheckInProgress = false;
         }
     }
 
-    private async Task RestartAdministratorSupportAsync() {
-        if(!_settings.AdministratorAppSupport) {
-            SetAdministratorStatus(
-                "Enable administrator application support and save settings first.",
-                isError: true);
+    async Task RestartAdministratorSupportAsync() {
+        if(!settings.AdministratorAppSupport) {
+            SetAdministratorStatus("Enable administrator application support and save settings first.", isError: true);
             return;
         }
 
         SetAdministratorStatus("Restarting administrator application support...", isError: false);
-        if(!_taskManager.RunBroker()) {
+        if(!taskManager.RunBroker()) {
             TryLaunchBrokerElevated();
         }
 
         await EvaluateBrokerAsync(startIfMissing: true);
     }
 
-    private void TryLaunchBrokerElevated() {
+    void TryLaunchBrokerElevated() {
         var brokerPath = Path.Combine(AppContext.BaseDirectory, "SmartLang.Broker.exe");
         if(!File.Exists(brokerPath)) {
             return;
@@ -271,11 +263,11 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         }
     }
 
-    private async Task<BrokerResponse?> TrySendAsync(
+    async Task<BrokerResponse?> TrySendAsync(
         BrokerCommand command,
         AppSettings? settings = null) {
         try {
-            return await _brokerClient.SendAsync(command, settings);
+            return await brokerClient.SendAsync(command, settings);
         } catch(Exception exception) when(
               exception is IOException or TimeoutException or OperationCanceledException or
               InvalidDataException or UnauthorizedAccessException or Win32Exception) {
@@ -284,81 +276,75 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         }
     }
 
-    private void UseFallback(string status) {
+    void UseFallback(string status) {
         try {
-            if(!_fallbackRuntime.IsRunning && _fallbackRuntime.TryStart(_settings)) {
-                _hookRefreshTimer.Start();
+            if(!fallbackRuntime.IsRunning && fallbackRuntime.TryStart(settings)) {
+                hookRefreshTimer.Start();
             }
 
             SetAdministratorStatus(status, isError: true);
         } catch(Win32Exception exception) {
-            SetAdministratorStatus(
-                $"No input hooks are active: {exception.Message}",
-                isError: true);
+            SetAdministratorStatus($"No input hooks are active: {exception.Message}", isError: true);
         }
     }
 
-    private void StopFallback() {
-        _hookRefreshTimer.Stop();
-        _fallbackRuntime.Stop();
+    void StopFallback() {
+        hookRefreshTimer.Stop();
+        fallbackRuntime.Stop();
     }
 
-    private void TryConfigureTasksLocally() {
+    void TryConfigureTasksLocally() {
         try {
-            _taskManager.Configure(
-                _settings.StartWithWindows,
-                _settings.AdministratorAppSupport);
+            taskManager.Configure(settings.StartWithWindows, settings.AdministratorAppSupport);
         } catch(Exception exception) when(
               exception is InvalidOperationException or UnauthorizedAccessException or COMException) {
             AppLog.Write($"Could not configure startup tasks locally: {exception.Message}");
         }
     }
 
-    private string? GetValidationMessage() =>
-        SettingsValidator.Validate(_settings, _languageCatalog.GetLanguageOptions());
+    string? GetValidationMessage() =>
+        SettingsValidator.Validate(settings, languageCatalog.GetLanguageOptions());
 
-    private void SetAdministratorStatus(string status, bool isError) {
-        _administratorStatus = status;
-        _administratorStatusIsError = isError;
-        _notifyIcon.Text = isError
-            ? "SmartLang - limited administrator support"
-            : "SmartLang - administrator support active";
-        _settingsForm?.SetAdministratorSupportStatus(status, isError);
+    void SetAdministratorStatus(string status, bool isError) {
+        administratorStatus = status;
+        administratorStatusIsError = isError;
+        notifyIcon.Text = isError ? "SmartLang - limited administrator support" : "SmartLang - administrator support active";
+        settingsForm?.SetAdministratorSupportStatus(status, isError);
     }
 
-    private void ShowNotification(string title, string text, ToolTipIcon icon) {
-        _notifyIcon.BalloonTipTitle = title;
-        _notifyIcon.BalloonTipText = text;
-        _notifyIcon.BalloonTipIcon = icon;
-        _notifyIcon.ShowBalloonTip(4000);
+    void ShowNotification(string title, string text, ToolTipIcon icon) {
+        notifyIcon.BalloonTipTitle = title;
+        notifyIcon.BalloonTipText = text;
+        notifyIcon.BalloonTipIcon = icon;
+        notifyIcon.ShowBalloonTip(4000);
     }
 
-    private void Dispatch(Action action) {
-        if(_isExiting || _dispatcher.IsDisposed) {
+    void Dispatch(Action action) {
+        if(isExiting || dispatcher.IsDisposed) {
             return;
         }
 
         try {
-            _dispatcher.BeginInvoke(action);
-        } catch(InvalidOperationException) when(_isExiting || _dispatcher.IsDisposed) {
+            dispatcher.BeginInvoke(action);
+        } catch(InvalidOperationException) when(isExiting || dispatcher.IsDisposed) {
         }
     }
 
-    private async Task ExitAsync() {
-        if(_isExiting) {
+    async Task ExitAsync() {
+        if(isExiting) {
             return;
         }
 
-        _isExiting = true;
-        _healthTimer.Stop();
+        isExiting = true;
+        healthTimer.Stop();
         StopFallback();
-        if(_settings.AdministratorAppSupport) {
+        if(settings.AdministratorAppSupport) {
             await TrySendAsync(BrokerCommand.Stop);
         }
 
-        _settingsForm?.AllowClose();
-        _settingsForm?.Close();
-        _notifyIcon.Visible = false;
+        settingsForm?.AllowClose();
+        settingsForm?.Close();
+        notifyIcon.Visible = false;
         ExitThread();
     }
 }
