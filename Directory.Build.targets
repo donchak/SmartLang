@@ -1,0 +1,12 @@
+<Project>
+
+  <Target Name="ValidateSmartLangVersion"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(SmartLangVersion)' == ''"
+           Text="SmartLangVersion is required." />
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(SmartLangVersion)', '^\d+\.\d+\.\d+$'))"
+           Text="SmartLangVersion must use numeric major.minor.patch format, for example 1.2.3." />
+  </Target>
+
+</Project>

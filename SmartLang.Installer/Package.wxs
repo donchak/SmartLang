@@ -4,7 +4,7 @@
   <Package
       Name="SmartLang"
       Manufacturer="SmartLang"
-      Version="1.0.0"
+      Version="$(var.ProductVersion)"
       UpgradeCode="{6E16A102-4FC7-4D32-9E6F-ADCF08F0EF51}"
       Scope="perMachine">
 

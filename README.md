@@ -25,6 +25,28 @@ This restores packages, builds the tray, elevated broker, native hooks and x86
 host, runs all tests, publishes to `artifacts\publish`, and creates
 `artifacts\installer\SmartLang.msi`.
 
+## Release Version
+
+The checked-in application version is controlled in `Version.props`:
+
+```xml
+<SmartLangVersion>1.0.0</SmartLangVersion>
+```
+
+Use numeric `major.minor.patch` format. This single value controls the assembly,
+file, informational, broker protocol status, and MSI product versions. Git
+commit hashes are not appended to the displayed application version.
+
+For a one-off release build without editing `Version.props`, pass:
+
+```powershell
+.\build.ps1 -Version 1.2.3
+```
+
+The MSI supports major upgrades, so installing a higher version replaces the
+older SmartLang installation. Windows Installer limits major and minor values
+to 255 and the patch value to 65535.
+
 Deploy the entire publish folder. These runtime files must remain together:
 
 - `SmartLang.exe`
@@ -45,6 +67,7 @@ Optional arguments:
 .\build.ps1 -SkipTests
 .\build.ps1 -SkipInstaller
 .\build.ps1 -OutputDirectory C:\Builds\SmartLang
+.\build.ps1 -Version 1.2.3
 ```
 
 For signed releases, provide `-SigningCertificateThumbprint` and optionally

@@ -9,6 +9,8 @@ param(
 
     [switch] $SkipInstaller,
 
+    [string] $Version,
+
     [string] $SigningCertificateThumbprint,
 
     [string] $TimestampUrl
@@ -20,14 +22,33 @@ $solution = Join-Path $repositoryRoot 'SmartLang.slnx'
 $project = Join-Path $repositoryRoot 'SmartLang\SmartLang.csproj'
 $brokerProject = Join-Path $repositoryRoot 'SmartLang.Broker\SmartLang.Broker.csproj'
 $installerProject = Join-Path $repositoryRoot 'SmartLang.Installer\SmartLang.Installer.wixproj'
+$versionFile = Join-Path $repositoryRoot 'Version.props'
 $publishDirectory = [IO.Path]::GetFullPath(
     (Join-Path $repositoryRoot $OutputDirectory))
 $installerDirectory = Join-Path $repositoryRoot 'artifacts\installer'
 
+[xml] $versionDocument = Get-Content -LiteralPath $versionFile
+$configuredVersion = [string] $versionDocument.Project.PropertyGroup.SmartLangVersion
+$effectiveVersion = if ([string]::IsNullOrWhiteSpace($Version)) {
+    $configuredVersion
+}
+else {
+    $Version
+}
+
+if ($effectiveVersion -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Version '$effectiveVersion' must use numeric major.minor.patch format, for example 1.2.3."
+}
+
+$versionParts = $effectiveVersion.Split('.') | ForEach-Object { [int] $_ }
+if ($versionParts[0] -gt 255 -or $versionParts[1] -gt 255 -or $versionParts[2] -gt 65535) {
+    throw "Version '$effectiveVersion' exceeds Windows Installer limits: major/minor <= 255 and patch <= 65535."
+}
+
 function Invoke-DotNet {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]] $Arguments)
 
-    & dotnet @Arguments
+    & dotnet @Arguments "-p:SmartLangVersion=$effectiveVersion"
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
     }
@@ -69,13 +90,15 @@ if ($env:OS -ne 'Windows_NT') {
 
 Push-Location $repositoryRoot
 try {
+    Write-Host "SmartLang version: $effectiveVersion"
     Write-Host 'Restoring packages...'
-    Invoke-DotNet restore $solution
+    Invoke-DotNet restore $solution '-m:1' --disable-parallel
 
     Write-Host "Building SmartLang and native x64/x86 hooks ($Configuration)..."
     Invoke-DotNet build $solution `
         --configuration $Configuration `
         --no-restore `
+        '-m:1' `
         --verbosity minimal
 
     if (-not $SkipTests) {
@@ -84,6 +107,7 @@ try {
             --configuration $Configuration `
             --no-build `
             --no-restore `
+            '-m:1' `
             --verbosity minimal
     }
 
@@ -92,11 +116,13 @@ try {
         --configuration $Configuration `
         --no-restore `
         --output $publishDirectory `
+        '-m:1' `
         --verbosity minimal
     Invoke-DotNet publish $brokerProject `
         --configuration $Configuration `
         --no-restore `
         --output $publishDirectory `
+        '-m:1' `
         --verbosity minimal
 
     Invoke-Signing @(
@@ -109,12 +135,13 @@ try {
 
     if (-not $SkipInstaller) {
         Write-Host "Building MSI to $installerDirectory..."
-        Invoke-DotNet restore $installerProject
+        Invoke-DotNet restore $installerProject '-m:1' --disable-parallel
         Invoke-DotNet build $installerProject `
             --configuration $Configuration `
             --no-restore `
             --output $installerDirectory `
             "-p:PublishDir=$publishDirectory" `
+            '-m:1' `
             --verbosity minimal
 
         Invoke-Signing @(
@@ -123,7 +150,7 @@ try {
     }
 
     Write-Host ''
-    Write-Host "Build completed: $publishDirectory"
+    Write-Host "Build completed: SmartLang $effectiveVersion at $publishDirectory"
     if (-not $SkipInstaller) {
         Write-Host "Installer completed: $installerDirectory\SmartLang.msi"
     }

@@ -5,7 +5,7 @@
     <Platform>x64</Platform>
     <InstallerPlatform>x64</InstallerPlatform>
     <OutputName>SmartLang</OutputName>
-    <DefineConstants>PublishDir=$(PublishDir)</DefineConstants>
+    <DefineConstants>$(DefineConstants);PublishDir=$(PublishDir);ProductVersion=$(SmartLangVersion)</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,0 +1,15 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)Version.props" />
+
+  <PropertyGroup>
+    <Version>$(SmartLangVersion)</Version>
+    <VersionPrefix>$(SmartLangVersion)</VersionPrefix>
+    <AssemblyVersion>$(SmartLangVersion).0</AssemblyVersion>
+    <FileVersion>$(SmartLangVersion).0</FileVersion>
+    <InformationalVersion>$(SmartLangVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>SmartLang</Product>
+  </PropertyGroup>
+
+</Project>
