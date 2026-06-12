@@ -33,7 +33,10 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
                 ?? (Icon)SystemIcons.Application.Clone()
             : (Icon)SystemIcons.Application.Clone();
 
+        var applicationVersion = Application.ProductVersion;
         var menu = new ContextMenuStrip();
+        menu.Items.Add(new ToolStripMenuItem($"SmartLang v{applicationVersion}") { Enabled = false });
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Settings", null, (_, _) => OpenSettings());
         menu.Items.Add("Exit", null, async (_, _) => await ExitAsync());
 
@@ -120,7 +123,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
     }
 
     SettingsForm CreateSettingsForm() {
-        var form = new SettingsForm(applicationIcon);
+        var form = new SettingsForm(applicationIcon, Application.ProductVersion);
         form.SetSaveHandler(SaveSettings);
         form.SetRestartAdministratorSupportHandler(async () => await RestartAdministratorSupportAsync());
         form.SetAdministratorSupportStatus(administratorStatus, administratorStatusIsError);

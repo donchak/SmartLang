@@ -14,7 +14,7 @@ public sealed class SettingsForm: Form {
     Action? restartAdministratorSupport;
     bool allowClose;
 
-    public SettingsForm(Icon applicationIcon) {
+    public SettingsForm(Icon applicationIcon, string applicationVersion) {
         Text = "SmartLang Settings";
         Icon = (Icon)applicationIcon.Clone();
         StartPosition = FormStartPosition.CenterScreen;
@@ -92,6 +92,13 @@ public sealed class SettingsForm: Form {
         buttons.Controls.Add(saveButton);
         buttons.Controls.Add(cancelButton);
 
+        var version = new Label {
+            Text = $"SmartLang v{applicationVersion}",
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = SystemColors.GrayText
+        };
+
         var layout = new TableLayoutPanel {
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
@@ -119,8 +126,8 @@ public sealed class SettingsForm: Form {
         layout.Controls.Add(restartAdministratorSupportButton, 1, 6);
         layout.Controls.Add(status, 0, 7);
         layout.SetColumnSpan(status, 2);
-        layout.Controls.Add(buttons, 0, 8);
-        layout.SetColumnSpan(buttons, 2);
+        layout.Controls.Add(version, 0, 8);
+        layout.Controls.Add(buttons, 1, 8);
 
         Controls.Add(layout);
         FormClosing += HandleFormClosing;
