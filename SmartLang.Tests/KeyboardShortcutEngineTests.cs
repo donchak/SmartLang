@@ -274,6 +274,60 @@ public sealed class KeyboardShortcutEngineTests
         Assert.Null(release.ReplayEvents);
     }
 
+    [Theory]
+    [InlineData(KeyboardShortcutEngine.VkLShift)]
+    [InlineData(KeyboardShortcutEngine.VkRShift)]
+    [InlineData(KeyboardShortcutEngine.VkLControl)]
+    [InlineData(KeyboardShortcutEngine.VkRControl)]
+    [InlineData(KeyboardShortcutEngine.VkLWin)]
+    [InlineData(KeyboardShortcutEngine.VkRWin)]
+    public void PointerInputReplaysBufferedModifierBeforeClick(int modifier)
+    {
+        var engine = new KeyboardShortcutEngine();
+
+        Assert.True(engine.Process(modifier, isKeyDown: true).Suppress);
+        var pointerInput = engine.ProcessPointerInput();
+
+        Assert.False(pointerInput.Suppress);
+        Assert.Equal(
+            [new SyntheticKeyEvent(modifier, true)],
+            pointerInput.ReplayEvents);
+        Assert.False(engine.Process(modifier, isKeyDown: false).Suppress);
+    }
+
+    [Fact]
+    public void InjectedPointerInputDoesNotReplayBufferedModifier()
+    {
+        var engine = new KeyboardShortcutEngine();
+        engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true);
+
+        var injectedPointerInput = engine.ProcessPointerInput(isInjected: true);
+        var physicalPointerInput = engine.ProcessPointerInput();
+
+        Assert.Null(injectedPointerInput.ReplayEvents);
+        Assert.Equal(
+            [new SyntheticKeyEvent(KeyboardShortcutEngine.VkLShift, true)],
+            physicalPointerInput.ReplayEvents);
+    }
+
+    [Fact]
+    public void PointerInputReplaysConsumedModifierStillHeldAfterShortcut()
+    {
+        var engine = new KeyboardShortcutEngine();
+        engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true);
+        engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true);
+        engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: false);
+
+        var pointerInput = engine.ProcessPointerInput();
+
+        Assert.Equal(
+            [new SyntheticKeyEvent(KeyboardShortcutEngine.VkLControl, true)],
+            pointerInput.ReplayEvents);
+        Assert.False(engine.Process(
+            KeyboardShortcutEngine.VkLControl,
+            isKeyDown: false).Suppress);
+    }
+
     [Fact]
     public void OrdinarySingleKeyPassesThroughUnchanged()
     {

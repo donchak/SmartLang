@@ -112,6 +112,19 @@ public sealed class KeyboardShortcutEngine
         return ShortcutProcessingResult.Pass;
     }
 
+    public ShortcutProcessingResult ProcessPointerInput(bool isInjected = false)
+    {
+        if (isInjected)
+        {
+            return ShortcutProcessingResult.Pass;
+        }
+
+        SeedHeldConsumedModifiers();
+        return _bufferedModifiers.Count > 0
+            ? ReplayBufferedModifiers(suppressCurrentEvent: false)
+            : ShortcutProcessingResult.Pass;
+    }
+
     private ShortcutProcessingResult ProcessModifierDown(int virtualKey)
     {
         if (_replayedModifiers.Contains(virtualKey))

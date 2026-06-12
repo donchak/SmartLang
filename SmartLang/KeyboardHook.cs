@@ -7,8 +7,10 @@ public sealed class KeyboardHook : IDisposable
 {
     private readonly KeyboardShortcutEngine _engine;
     private readonly Action<ShortcutKind> _shortcutTriggered;
-    private readonly NativeMethods.LowLevelKeyboardProc _callback;
-    private nint _hookHandle;
+    private readonly NativeMethods.LowLevelKeyboardProc _keyboardCallback;
+    private readonly NativeMethods.LowLevelMouseProc _mouseCallback;
+    private nint _keyboardHookHandle;
+    private nint _mouseHookHandle;
 
     public KeyboardHook(
         IEnumerable<ShortcutKind> enabledShortcuts,
@@ -16,63 +18,89 @@ public sealed class KeyboardHook : IDisposable
     {
         _engine = new KeyboardShortcutEngine(enabledShortcuts);
         _shortcutTriggered = shortcutTriggered;
-        _callback = HookCallback;
+        _keyboardCallback = KeyboardHookCallback;
+        _mouseCallback = MouseHookCallback;
     }
 
     public void Start()
     {
-        if (_hookHandle != 0)
+        if (_keyboardHookHandle != 0 || _mouseHookHandle != 0)
         {
             return;
         }
 
-        _hookHandle = NativeMethods.SetWindowsHookEx(
+        _keyboardHookHandle = NativeMethods.SetWindowsHookEx(
             NativeMethods.WhKeyboardLl,
-            _callback,
+            _keyboardCallback,
             NativeMethods.GetModuleHandle(null),
             0);
 
-        if (_hookHandle == 0)
+        if (_keyboardHookHandle == 0)
         {
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not install the keyboard hook.");
         }
 
-        AppLog.Write($"Keyboard hook installed. Handle=0x{_hookHandle:X}.");
+        _mouseHookHandle = NativeMethods.SetWindowsHookEx(
+            NativeMethods.WhMouseLl,
+            _mouseCallback,
+            NativeMethods.GetModuleHandle(null),
+            0);
+
+        if (_mouseHookHandle == 0)
+        {
+            var error = Marshal.GetLastWin32Error();
+            NativeMethods.UnhookWindowsHookEx(_keyboardHookHandle);
+            _keyboardHookHandle = 0;
+            throw new Win32Exception(error, "Could not install the mouse hook.");
+        }
+
+        AppLog.Write(
+            $"Input hooks installed. Keyboard=0x{_keyboardHookHandle:X}, mouse=0x{_mouseHookHandle:X}.");
     }
 
     public void Dispose()
     {
-        if (_hookHandle == 0)
+        if (_keyboardHookHandle == 0 && _mouseHookHandle == 0)
         {
             return;
         }
 
-        if (!NativeMethods.UnhookWindowsHookEx(_hookHandle))
+        Unhook(ref _mouseHookHandle, "mouse");
+        Unhook(ref _keyboardHookHandle, "keyboard");
+        GC.SuppressFinalize(this);
+    }
+
+    private static void Unhook(ref nint hookHandle, string hookName)
+    {
+        if (hookHandle == 0)
+        {
+            return;
+        }
+
+        if (!NativeMethods.UnhookWindowsHookEx(hookHandle))
         {
             System.Diagnostics.Debug.WriteLine(
-                $"SmartLang could not uninstall the keyboard hook. " +
+                $"SmartLang could not uninstall the {hookName} hook. " +
                 $"Win32 error: {Marshal.GetLastWin32Error()}.");
         }
 
-        _hookHandle = 0;
-        GC.SuppressFinalize(this);
+        hookHandle = 0;
     }
 
     public void Refresh()
     {
-        if (_hookHandle == 0)
+        if (_keyboardHookHandle == 0 || _mouseHookHandle == 0)
         {
             return;
         }
 
-        var previousHandle = _hookHandle;
-        var newHandle = NativeMethods.SetWindowsHookEx(
+        var newKeyboardHandle = NativeMethods.SetWindowsHookEx(
             NativeMethods.WhKeyboardLl,
-            _callback,
+            _keyboardCallback,
             NativeMethods.GetModuleHandle(null),
             0);
 
-        if (newHandle == 0)
+        if (newKeyboardHandle == 0)
         {
             System.Diagnostics.Debug.WriteLine(
                 $"SmartLang could not refresh the keyboard hook. " +
@@ -80,39 +108,53 @@ public sealed class KeyboardHook : IDisposable
             return;
         }
 
-        _hookHandle = newHandle;
+        var newMouseHandle = NativeMethods.SetWindowsHookEx(
+            NativeMethods.WhMouseLl,
+            _mouseCallback,
+            NativeMethods.GetModuleHandle(null),
+            0);
+
+        if (newMouseHandle == 0)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"SmartLang could not refresh the mouse hook. " +
+                $"Win32 error: {Marshal.GetLastWin32Error()}.");
+            NativeMethods.UnhookWindowsHookEx(newKeyboardHandle);
+            return;
+        }
+
+        var previousKeyboardHandle = _keyboardHookHandle;
+        var previousMouseHandle = _mouseHookHandle;
+        _keyboardHookHandle = newKeyboardHandle;
+        _mouseHookHandle = newMouseHandle;
 
         // Any key events during the gap (or before an eviction) were missed, so
         // discard accumulated modifier state to avoid a stuck-modifier replay.
         _engine.Reset();
 
-        if (!NativeMethods.UnhookWindowsHookEx(previousHandle))
-        {
-            System.Diagnostics.Debug.WriteLine(
-                $"SmartLang could not uninstall the previous keyboard hook during refresh. " +
-                $"Win32 error: {Marshal.GetLastWin32Error()}.");
-        }
+        Unhook(ref previousMouseHandle, "previous mouse");
+        Unhook(ref previousKeyboardHandle, "previous keyboard");
     }
 
-    private nint HookCallback(int code, nint wParam, nint lParam)
+    private nint KeyboardHookCallback(int code, nint wParam, nint lParam)
     {
         try
         {
-            return ProcessCallback(code, wParam, lParam);
+            return ProcessKeyboardCallback(code, wParam, lParam);
         }
         catch (Exception exception)
         {
             System.Diagnostics.Debug.WriteLine(
                 $"SmartLang keyboard hook callback threw {exception.GetType().Name}: {exception.Message}");
-            return NativeMethods.CallNextHookEx(_hookHandle, code, wParam, lParam);
+            return NativeMethods.CallNextHookEx(_keyboardHookHandle, code, wParam, lParam);
         }
     }
 
-    private nint ProcessCallback(int code, nint wParam, nint lParam)
+    private nint ProcessKeyboardCallback(int code, nint wParam, nint lParam)
     {
         if (code < 0)
         {
-            return NativeMethods.CallNextHookEx(_hookHandle, code, wParam, lParam);
+            return NativeMethods.CallNextHookEx(_keyboardHookHandle, code, wParam, lParam);
         }
 
         var message = unchecked((int)wParam);
@@ -120,7 +162,7 @@ public sealed class KeyboardHook : IDisposable
         var isKeyUp = message is NativeMethods.WmKeyUp or NativeMethods.WmSysKeyUp;
         if (!isKeyDown && !isKeyUp)
         {
-            return NativeMethods.CallNextHookEx(_hookHandle, code, wParam, lParam);
+            return NativeMethods.CallNextHookEx(_keyboardHookHandle, code, wParam, lParam);
         }
 
         var data = Marshal.PtrToStructure<NativeMethods.KeyboardHookData>(lParam);
@@ -145,8 +187,45 @@ public sealed class KeyboardHook : IDisposable
 
         return result.Suppress
             ? 1
-            : NativeMethods.CallNextHookEx(_hookHandle, code, wParam, lParam);
+            : NativeMethods.CallNextHookEx(_keyboardHookHandle, code, wParam, lParam);
     }
+
+    private nint MouseHookCallback(int code, nint wParam, nint lParam)
+    {
+        try
+        {
+            if (code >= 0 && IsPointerInteractionMessage(unchecked((int)wParam)))
+            {
+                var data = Marshal.PtrToStructure<NativeMethods.MouseHookData>(lParam);
+                var isInjected = (data.Flags &
+                    (NativeMethods.LlmhfInjected | NativeMethods.LlmhfLowerIlInjected)) != 0;
+                var result = _engine.ProcessPointerInput(isInjected);
+                if (result.ReplayEvents is { Count: > 0 })
+                {
+                    Replay(result.ReplayEvents);
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"SmartLang mouse hook callback threw {exception.GetType().Name}: {exception.Message}");
+        }
+
+        return NativeMethods.CallNextHookEx(_mouseHookHandle, code, wParam, lParam);
+    }
+
+    internal static bool IsPointerInteractionMessage(int message) =>
+        message is NativeMethods.WmLButtonDown
+            or NativeMethods.WmLButtonUp
+            or NativeMethods.WmRButtonDown
+            or NativeMethods.WmRButtonUp
+            or NativeMethods.WmMButtonDown
+            or NativeMethods.WmMButtonUp
+            or NativeMethods.WmMouseWheel
+            or NativeMethods.WmXButtonDown
+            or NativeMethods.WmXButtonUp
+            or NativeMethods.WmMouseHWheel;
 
     private static void Replay(IReadOnlyList<SyntheticKeyEvent> events)
     {

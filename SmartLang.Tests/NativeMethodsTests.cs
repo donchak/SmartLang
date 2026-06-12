@@ -11,4 +11,12 @@ public sealed class NativeMethodsTests
 
         Assert.Equal(expectedSize, Marshal.SizeOf<NativeMethods.Input>());
     }
+
+    [Fact]
+    public void MouseHookDataStructureMatchesWindowsAbi()
+    {
+        var expectedSize = Environment.Is64BitProcess ? 32 : 24;
+
+        Assert.Equal(expectedSize, Marshal.SizeOf<NativeMethods.MouseHookData>());
+    }
 }
