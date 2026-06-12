@@ -45,6 +45,9 @@ if ($versionParts[0] -gt 255 -or $versionParts[1] -gt 255 -or $versionParts[2] -
     throw "Version '$effectiveVersion' exceeds Windows Installer limits: major/minor <= 255 and patch <= 65535."
 }
 
+$installerFileName = "SmartLang.v$effectiveVersion.msi"
+$installerPath = Join-Path $installerDirectory $installerFileName
+
 function Invoke-DotNet {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]] $Arguments)
 
@@ -145,14 +148,14 @@ try {
             --verbosity minimal
 
         Invoke-Signing @(
-            (Join-Path $installerDirectory 'SmartLang.msi')
+            $installerPath
         )
     }
 
     Write-Host ''
     Write-Host "Build completed: SmartLang $effectiveVersion at $publishDirectory"
     if (-not $SkipInstaller) {
-        Write-Host "Installer completed: $installerDirectory\SmartLang.msi"
+        Write-Host "Installer completed: $installerPath"
     }
 }
 finally {

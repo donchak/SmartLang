@@ -4,7 +4,7 @@
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
     <InstallerPlatform>x64</InstallerPlatform>
-    <OutputName>SmartLang</OutputName>
+    <OutputName>SmartLang.v$(SmartLangVersion)</OutputName>
     <DefineConstants>$(DefineConstants);PublishDir=$(PublishDir);ProductVersion=$(SmartLangVersion)</DefineConstants>
   </PropertyGroup>
 

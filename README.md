@@ -22,8 +22,8 @@ From a PowerShell terminal in the repository root:
 ```
 
 This restores packages, builds the tray, elevated broker, native hooks and x86
-host, runs all tests, publishes to `artifacts\publish`, and creates
-`artifacts\installer\SmartLang.msi`.
+host, runs all tests, publishes to `artifacts\publish`, and creates a versioned
+installer such as `artifacts\installer\SmartLang.v0.7.1.msi`.
 
 ## Release Version
 
