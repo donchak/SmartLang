@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>SmartLang.Runtime</AssemblyName>
+    <RootNamespace>SmartLang</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmartLang" />
+    <InternalsVisibleTo Include="SmartLang.Broker" />
+    <InternalsVisibleTo Include="SmartLang.Setup" />
+    <InternalsVisibleTo Include="SmartLang.Tests" />
+  </ItemGroup>
+
+  <Target Name="BuildNativeHook" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <NativeHookProject>$(MSBuildProjectDirectory)\..\SmartLang.NativeHook\SmartLang.NativeHook.vcxproj</NativeHookProject>
+      <NativeHostProject>$(MSBuildProjectDirectory)\..\SmartLang.NativeHost32\SmartLang.NativeHost32.vcxproj</NativeHostProject>
+      <NativeHookConfiguration Condition="'$(Configuration)' == 'Debug'">Debug</NativeHookConfiguration>
+      <NativeHookConfiguration Condition="'$(NativeHookConfiguration)' == ''">Release</NativeHookConfiguration>
+      <VsWherePath>$([System.Environment]::GetEnvironmentVariable("ProgramFiles(x86)"))\Microsoft Visual Studio\Installer\vswhere.exe</VsWherePath>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(VsWherePath)')"
+           Text="vswhere.exe not found at '$(VsWherePath)'. Install Visual Studio with the C++ desktop workload." />
+
+    <Exec Command="&quot;$(VsWherePath)&quot; -latest -products Microsoft.VisualStudio.Product.Enterprise Microsoft.VisualStudio.Product.Professional Microsoft.VisualStudio.Product.Community Microsoft.VisualStudio.Product.BuildTools -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find MSBuild\**\Bin\MSBuild.exe"
+          ConsoleToMsBuild="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="NativeHookMsBuildPath" />
+    </Exec>
+
+    <Error Condition="'$(NativeHookMsBuildPath)' == ''"
+           Text="vswhere could not locate MSBuild.exe with the C++ desktop workload." />
+
+    <Exec Command="&quot;$(NativeHookMsBuildPath)&quot; &quot;$(NativeHookProject)&quot; /nologo /v:minimal /p:Configuration=$(NativeHookConfiguration) /p:Platform=x64" />
+    <Exec Command="&quot;$(NativeHookMsBuildPath)&quot; &quot;$(NativeHookProject)&quot; /nologo /v:minimal /p:Configuration=$(NativeHookConfiguration) /p:Platform=Win32" />
+    <Exec Command="&quot;$(NativeHookMsBuildPath)&quot; &quot;$(NativeHostProject)&quot; /nologo /v:minimal /p:Configuration=$(NativeHookConfiguration) /p:Platform=Win32" />
+  </Target>
+
+</Project>

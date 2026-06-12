@@ -33,7 +33,7 @@ Composition root is `SmartLangApplicationContext` (constructed from `Program.Mai
 - `SingleInstanceCoordinator` — enforces single instance and signals the existing instance to open Settings.
 - `SettingsStore` — JSON persistence at `%LocalAppData%\SmartLang\settings.json` (schema versioned via `AppSettings.CurrentVersion`).
 - `SettingsValidator` — pure validation; always run results through it before enabling the hook or saving.
-- `StartupManager` — toggles the per-user `Run` registry key for start-at-sign-in.
+- `ScheduledTaskManager` — registers and controls the per-user tray and elevated broker tasks. Do not restore `HKCU\Run`; broker startup requires Task Scheduler's highest run level.
 - `LanguageCatalog` — enumerates installed Windows keyboard layouts / languages.
 - `KeyboardLayoutService` — performs the actual layout switch against the foreground window via `PostMessage(WM_INPUTLANGCHANGEREQUEST)`. It uses `GetGUIThreadInfo` to target the focused child window and remembers the last-used layout per language tag so toggling restores the user's preferred variant.
 - `KeyboardHook` + `KeyboardShortcutEngine` — `KeyboardHook` installs a `WH_KEYBOARD_LL` low-level hook; `KeyboardShortcutEngine` is the pure state machine that decides when `Ctrl+Shift` / `Win+Space` should fire and whether to suppress the key. **All shortcut logic belongs in `KeyboardShortcutEngine` so it stays unit-testable** — the hook should remain a thin Win32 shim.

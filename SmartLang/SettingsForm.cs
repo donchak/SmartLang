@@ -7,9 +7,12 @@ public sealed class SettingsForm : Form
     private readonly ComboBox _primaryShortcut = new();
     private readonly ComboBox _allLayoutsShortcut = new();
     private readonly CheckBox _startWithWindows = new();
+    private readonly CheckBox _administratorAppSupport = new();
+    private readonly Label _administratorStatus = new();
     private readonly Label _status = new();
     private IReadOnlyList<LanguageOption> _languages = [];
     private Func<AppSettings, string?>? _saveRequested;
+    private Action? _restartAdministratorSupport;
     private bool _allowClose;
 
     public SettingsForm(Icon applicationIcon)
@@ -21,7 +24,7 @@ public sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = true;
-        ClientSize = new Size(520, 310);
+        ClientSize = new Size(560, 390);
         MinimumSize = Size;
         MaximumSize = Size;
 
@@ -48,11 +51,25 @@ public sealed class SettingsForm : Form
 
         _startWithWindows.Text = "Start SmartLang when I sign in to Windows";
         _startWithWindows.AutoSize = true;
+        _administratorAppSupport.Text = "Support applications running as administrator";
+        _administratorAppSupport.AutoSize = true;
+
+        _administratorStatus.AutoSize = false;
+        _administratorStatus.TextAlign = ContentAlignment.MiddleLeft;
+        _administratorStatus.Dock = DockStyle.Fill;
 
         _status.AutoSize = false;
         _status.ForeColor = Color.Firebrick;
         _status.TextAlign = ContentAlignment.MiddleLeft;
         _status.Dock = DockStyle.Fill;
+
+        var restartAdministratorSupportButton = new Button
+        {
+            Text = "Restart administrator support",
+            AutoSize = true
+        };
+        restartAdministratorSupportButton.Click += (_, _) =>
+            _restartAdministratorSupport?.Invoke();
 
         var saveButton = new Button
         {
@@ -86,15 +103,15 @@ public sealed class SettingsForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
             ColumnCount = 2,
-            RowCount = 7
+            RowCount = 9
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+        for (var row = 0; row < 7; row++)
+        {
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+        }
+
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
@@ -104,9 +121,13 @@ public sealed class SettingsForm : Form
         AddRow(layout, 3, "Cycle all layouts:", _allLayoutsShortcut);
         layout.Controls.Add(_startWithWindows, 0, 4);
         layout.SetColumnSpan(_startWithWindows, 2);
-        layout.Controls.Add(_status, 0, 5);
+        layout.Controls.Add(_administratorAppSupport, 0, 5);
+        layout.SetColumnSpan(_administratorAppSupport, 2);
+        layout.Controls.Add(_administratorStatus, 0, 6);
+        layout.Controls.Add(restartAdministratorSupportButton, 1, 6);
+        layout.Controls.Add(_status, 0, 7);
         layout.SetColumnSpan(_status, 2);
-        layout.Controls.Add(buttons, 0, 6);
+        layout.Controls.Add(buttons, 0, 8);
         layout.SetColumnSpan(buttons, 2);
 
         Controls.Add(layout);
@@ -116,6 +137,11 @@ public sealed class SettingsForm : Form
     public void SetSaveHandler(Func<AppSettings, string?> saveRequested)
     {
         _saveRequested = saveRequested;
+    }
+
+    public void SetRestartAdministratorSupportHandler(Action restartRequested)
+    {
+        _restartAdministratorSupport = restartRequested;
     }
 
     public void LoadSettings(
@@ -138,7 +164,16 @@ public sealed class SettingsForm : Form
         SelectShortcut(_primaryShortcut, settings.PrimaryShortcut);
         SelectShortcut(_allLayoutsShortcut, settings.AllLayoutsShortcut);
         _startWithWindows.Checked = settings.StartWithWindows;
+        _administratorAppSupport.Checked = settings.AdministratorAppSupport;
         _status.Text = validationMessage ?? string.Empty;
+    }
+
+    public void SetAdministratorSupportStatus(string status, bool isError)
+    {
+        _administratorStatus.Text = status;
+        _administratorStatus.ForeColor = isError
+            ? Color.Firebrick
+            : SystemColors.ControlText;
     }
 
     public void AllowClose()
@@ -163,7 +198,8 @@ public sealed class SettingsForm : Form
             SecondaryLanguageTag = secondary.LanguageTag,
             PrimaryShortcut = primaryShortcut.Kind,
             AllLayoutsShortcut = allLayoutsShortcut.Kind,
-            StartWithWindows = _startWithWindows.Checked
+            StartWithWindows = _startWithWindows.Checked,
+            AdministratorAppSupport = _administratorAppSupport.Checked
         };
 
         var validationMessage = SettingsValidator.Validate(settings, _languages);

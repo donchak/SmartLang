@@ -20,11 +20,13 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
     private const uint SmartLangActivateLayout = NativeMethods.WmApp + 0x534;
     private const string Native64FileName = "SmartLang.NativeHook.dll";
     private const string Native32FileName = "SmartLang.NativeHook32.dll";
+    private const string Native32HostFileName = "SmartLang.NativeHost32.exe";
     private const string Native64EnvironmentVariable = "SMARTLANG_NATIVE_HOOK_PATH";
     private const string Native32EnvironmentVariable = "SMARTLANG_NATIVE_HOOK32_PATH";
 
     private NativeHook? _hook64;
-    private NativeHook? _hook32;
+    private Process? _host32;
+    private string? _host32ShadowDirectory;
 
     public NativeInputProfileActivator()
     {
@@ -36,15 +38,14 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
 
         try
         {
-            _hook32 = NativeHook.Install(
-                ResolveLibraryPath(Native32FileName, Native32EnvironmentVariable),
-                required: false);
+            Start32BitHost();
         }
-        catch
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or
+            InvalidOperationException or Win32Exception)
         {
-            _hook64?.Dispose();
-            _hook64 = null;
-            throw;
+            AppLog.Write(
+                $"Optional 32-bit hook host did not start: {exception.Message}");
         }
     }
 
@@ -124,10 +125,82 @@ internal sealed class NativeInputProfileActivator : IInputProfileActivator
 
     public void Dispose()
     {
-        _hook32?.Dispose();
-        _hook32 = null;
+        if (_host32 is not null)
+        {
+            try
+            {
+                if (!_host32.HasExited)
+                {
+                    _host32.Kill(entireProcessTree: true);
+                    _host32.WaitForExit(2000);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            _host32.Dispose();
+            _host32 = null;
+        }
+
+        if (_host32ShadowDirectory is not null)
+        {
+            NativeHookShadowCopy.TryDelete(_host32ShadowDirectory);
+            _host32ShadowDirectory = null;
+        }
+
         _hook64?.Dispose();
         _hook64 = null;
+    }
+
+    private void Start32BitHost()
+    {
+        var hostPath = Path.Combine(AppContext.BaseDirectory, Native32HostFileName);
+        var libraryPath = ResolveLibraryPath(
+            Native32FileName,
+            Native32EnvironmentVariable);
+        if (!File.Exists(hostPath) || !File.Exists(libraryPath))
+        {
+            AppLog.Write(
+                $"Optional 32-bit hook host is unavailable. Host={hostPath}, DLL={libraryPath}.");
+            return;
+        }
+
+        var (shadowDirectory, shadowPath) = NativeHookShadowCopy.Create(libraryPath);
+        try
+        {
+            _host32 = Process.Start(new ProcessStartInfo
+            {
+                FileName = hostPath,
+                Arguments = $"\"{shadowPath}\" {Environment.ProcessId}",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            if (_host32 is null)
+            {
+                throw new InvalidOperationException("The 32-bit hook host did not start.");
+            }
+
+            if (_host32.WaitForExit(250))
+            {
+                var exitCode = _host32.ExitCode;
+                _host32.Dispose();
+                _host32 = null;
+                throw new Win32Exception(
+                    exitCode,
+                    "The 32-bit hook host exited during startup.");
+            }
+
+            _host32ShadowDirectory = shadowDirectory;
+            AppLog.Write(
+                $"32-bit hook host started. PID={_host32.Id}, DLL={shadowPath}.");
+        }
+        catch
+        {
+            NativeHookShadowCopy.TryDelete(shadowDirectory);
+            throw;
+        }
     }
 
     private static string ResolveLibraryPath(string fileName, string environmentVariable) =>
@@ -318,12 +391,13 @@ internal static class NativeHookShadowCopy
         }
     }
 
-    private static string GetRootDirectory() =>
-        Path.Combine(
-            Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData),
-            "SmartLang",
-            DirectoryName);
+    private static string GetRootDirectory()
+    {
+        var baseDirectory = ProcessSecurity.IsCurrentProcessElevated()
+            ? Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)
+            : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(baseDirectory, "SmartLang", DirectoryName);
+    }
 
     private static bool IsOwnedByLiveProcess(string directory)
     {

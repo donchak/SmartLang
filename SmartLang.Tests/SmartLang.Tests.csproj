@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartLang\SmartLang.csproj" />
+    <ProjectReference Include="..\SmartLang.Runtime\SmartLang.Runtime.csproj" />
   </ItemGroup>
 
 </Project>

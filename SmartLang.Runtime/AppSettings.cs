@@ -2,7 +2,7 @@ namespace SmartLang;
 
 public sealed class AppSettings
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public int Version { get; set; } = CurrentVersion;
 
@@ -14,7 +14,9 @@ public sealed class AppSettings
 
     public ShortcutKind AllLayoutsShortcut { get; set; } = ShortcutKind.WinSpace;
 
-    public bool StartWithWindows { get; set; }
+    public bool StartWithWindows { get; set; } = true;
+
+    public bool AdministratorAppSupport { get; set; } = true;
 
     public AppSettings Copy() => new()
     {
@@ -23,6 +25,7 @@ public sealed class AppSettings
         SecondaryLanguageTag = SecondaryLanguageTag,
         PrimaryShortcut = PrimaryShortcut,
         AllLayoutsShortcut = AllLayoutsShortcut,
-        StartWithWindows = StartWithWindows
+        StartWithWindows = StartWithWindows,
+        AdministratorAppSupport = AdministratorAppSupport
     };
 }

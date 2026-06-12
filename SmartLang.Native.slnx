@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="SmartLang.NativeHost32/SmartLang.NativeHost32.vcxproj" Id="a81961a1-268a-43cb-917c-88152571a9d1" />
   <Project Path="SmartLang.NativeHook/SmartLang.NativeHook.vcxproj" Id="b6e2a4c3-3e11-4f2a-9f1b-7a2a3d5d7c01" />
 </Solution>

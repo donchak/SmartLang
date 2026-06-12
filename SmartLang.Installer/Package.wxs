@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package
+      Name="SmartLang"
+      Manufacturer="SmartLang"
+      Version="1.0.0"
+      UpgradeCode="{6E16A102-4FC7-4D32-9E6F-ADCF08F0EF51}"
+      Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of SmartLang is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="SmartLang">
+        <Component Id="SmartLangExecutable" Guid="{03717E61-A8E5-4F57-A504-E79326C2663B}">
+          <File Id="SmartLangExe" Source="$(PublishDir)\SmartLang.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="SmartLangBrokerExecutable" Guid="{0B4D7DDF-EBC4-4AF8-AB26-F8903B0D79A4}">
+          <File Id="SmartLangBrokerExe" Source="$(PublishDir)\SmartLang.Broker.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="SmartLangNativeHook64" Guid="{A78DA0D8-4830-421E-B61D-1FA0F219C4C0}">
+          <File Source="$(PublishDir)\SmartLang.NativeHook.dll" KeyPath="yes" />
+        </Component>
+        <Component Id="SmartLangNativeHook32" Guid="{A8E7C5F3-4B66-48A1-A20A-E1764E21130C}">
+          <File Source="$(PublishDir)\SmartLang.NativeHook32.dll" KeyPath="yes" />
+        </Component>
+        <Component Id="SmartLangNativeHost32" Guid="{A1D7D7D3-CA80-42DA-B719-8136EF9E2222}">
+          <File Source="$(PublishDir)\SmartLang.NativeHost32.exe" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="ProgramDataSmartLang" Name="SmartLang">
+        <Directory Id="ProgramDataNativeHooks" Name="NativeHooks">
+          <Component Id="ProgramDataNativeHooksDirectory" Guid="{E8141BE0-BD89-44F3-BCEB-B499C1F59353}">
+            <CreateFolder>
+              <util:PermissionEx User="Users" GenericRead="yes" GenericExecute="yes" />
+              <util:PermissionEx User="Administrators" GenericAll="yes" />
+              <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+            </CreateFolder>
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="SmartLangShortcut" Guid="{B739E138-A294-4770-B9B2-996925B2C41A}">
+        <Shortcut
+            Id="SmartLangStartMenuShortcut"
+            Name="SmartLang"
+            Target="[INSTALLFOLDER]SmartLang.exe"
+            WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue
+            Root="HKMU"
+            Key="Software\SmartLang"
+            Name="StartMenuShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="SmartLang" Level="1">
+      <ComponentRef Id="SmartLangExecutable" />
+      <ComponentRef Id="SmartLangBrokerExecutable" />
+      <ComponentRef Id="SmartLangNativeHook64" />
+      <ComponentRef Id="SmartLangNativeHook32" />
+      <ComponentRef Id="SmartLangNativeHost32" />
+      <ComponentRef Id="ProgramDataNativeHooksDirectory" />
+      <ComponentRef Id="SmartLangShortcut" />
+    </Feature>
+
+    <CustomAction
+        Id="RegisterTasks"
+        FileRef="SmartLangBrokerExe"
+        ExeCommand="--install-tasks &quot;[UserSID]&quot;"
+        Execute="deferred"
+        Impersonate="no"
+        Return="check" />
+    <CustomAction
+        Id="RollbackTasks"
+        FileRef="SmartLangBrokerExe"
+        ExeCommand="--remove-tasks &quot;[UserSID]&quot;"
+        Execute="rollback"
+        Impersonate="no"
+        Return="ignore" />
+    <CustomAction
+        Id="RemoveTasks"
+        FileRef="SmartLangBrokerExe"
+        ExeCommand="--remove-tasks &quot;[UserSID]&quot;"
+        Execute="deferred"
+        Impersonate="no"
+        Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RollbackTasks" After="InstallFiles" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="RegisterTasks" After="RollbackTasks" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="RemoveTasks" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

@@ -37,16 +37,21 @@ Composition root is `SmartLangApplicationContext` (constructed from `Program.Mai
 - `SingleInstanceCoordinator` — enforces single instance and signals the existing instance to open Settings.
 - `SettingsStore` — JSON persistence at `%LocalAppData%\SmartLang\settings.json` (schema versioned via `AppSettings.CurrentVersion`).
 - `SettingsValidator` — pure validation; always run results through it before enabling the hook or saving.
-- `StartupManager` — toggles the per-user `Run` registry key for start-at-sign-in.
+- `ScheduledTaskManager` — registers and controls the per-user tray and elevated broker tasks. Do not restore `HKCU\Run`; broker startup requires Task Scheduler's highest run level.
 - `LanguageCatalog` — enumerates installed Windows keyboard layouts / languages.
 - `KeyboardLayoutService` — selects the target layout and delegates activation to `NativeInputProfileActivator`. It remembers the last-used layout per language tag so toggling restores the user's preferred variant.
-- `SmartLang.NativeHook` — a small x64 native `WH_GETMESSAGE` hook. SmartLang posts a private thread message to the foreground UI thread; the hook consumes it before the application sees it and calls `ActivateKeyboardLayout` in that thread. Do not switch layouts by posting `WM_INPUTLANGCHANGEREQUEST`, using TSF from the SmartLang thread, or emulating `Win+Space`; those approaches either affect the wrong thread or hang/misbehave in applications such as Visual Studio.
+- `SmartLang.Runtime` — shared settings, hook state machine, IPC, Task Scheduler integration, layout activation, and the single-owner hook controller used by both processes.
+- `SmartLang.Broker` — `requireAdministrator` process that owns hooks for both normal and elevated applications. It exposes only the versioned local pipe contract and installer task commands.
+- `SmartLang.NativeHook` — native `WH_GETMESSAGE` hook. SmartLang posts a private thread message to the foreground UI thread; the hook consumes it before the application sees it and calls `ActivateKeyboardLayout` in that thread. Do not switch layouts by posting `WM_INPUTLANGCHANGEREQUEST`, using TSF from the SmartLang thread, or emulating `Win+Space`; those approaches either affect the wrong thread or hang/misbehave in applications such as Visual Studio.
+- `SmartLang.NativeHost32` — x86 host that installs the 32-bit native hook and exits when its parent tray/broker exits.
 - `KeyboardHook` + `KeyboardShortcutEngine` — `KeyboardHook` installs a `WH_KEYBOARD_LL` low-level hook; `KeyboardShortcutEngine` is the pure state machine that decides when `Ctrl+Shift` / `Win+Space` should fire and whether to suppress the key. **All shortcut logic belongs in `KeyboardShortcutEngine` so it stays unit-testable** — the hook should remain a thin Win32 shim.
 - `SettingsForm` — the only UI. Closing it hides it; the tray menu's `Exit` is the only way to terminate.
 
 ### Threading
 
-The hook callback runs on the hook thread. `SmartLangApplicationContext._dispatcher` is a hidden `Control` used to marshal back to the UI thread via `BeginInvoke` (see the `Dispatch` method). Any callback originating from `KeyboardHook` or `SingleInstanceCoordinator` must be marshalled through `Dispatch` before touching UI or shared state.
+Hook callbacks run on the hook-owning UI thread. `HookRuntimeController` enforces one owner per user/session, so broker and fallback hooks must never run simultaneously. Both application contexts marshal pipe or listener callbacks through hidden `Control` instances before touching hook or UI state.
+
+Administrator support is valid only from the MSI's protected `Program Files` installation. Never auto-elevate a broker from a portable or user-writable directory. Elevated native shadow copies belong under protected `%ProgramData%`; medium-integrity fallback copies use `%LocalAppData%`.
 
 ### Key invariants
 

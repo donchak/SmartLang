@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace SmartLang;
 
@@ -31,6 +32,9 @@ internal static class NativeMethods
     internal const uint InputKeyboard = 1;
     internal const uint KeyeventfExtendedKey = 0x0001;
     internal const uint KeyeventfKeyUp = 0x0002;
+    internal const uint ProcessQueryLimitedInformation = 0x1000;
+    private const uint TokenQuery = 0x0008;
+    private const int TokenElevation = 20;
 
     internal delegate nint LowLevelKeyboardProc(int code, nint wParam, nint lParam);
     internal delegate nint LowLevelMouseProc(int code, nint wParam, nint lParam);
@@ -106,6 +110,46 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern nint GetForegroundWindow();
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetNamedPipeServerProcessId(
+        SafePipeHandle pipeHandle,
+        out uint serverProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    internal static extern SafeProcessHandle OpenProcess(
+        uint desiredAccess,
+        [MarshalAs(UnmanagedType.Bool)] bool inheritHandle,
+        uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool QueryFullProcessImageName(
+        SafeProcessHandle processHandle,
+        uint flags,
+        StringBuilder executablePath,
+        ref uint size);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool ProcessIdToSessionId(uint processId, out uint sessionId);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool OpenProcessToken(
+        SafeProcessHandle processHandle,
+        uint desiredAccess,
+        out SafeFileHandle tokenHandle);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetTokenInformation(
+        SafeFileHandle tokenHandle,
+        int tokenInformationClass,
+        out TokenElevationData tokenInformation,
+        int tokenInformationLength,
+        out int returnLength);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern int GetClassName(
         nint windowHandle,
@@ -130,6 +174,12 @@ internal static class NativeMethods
         internal uint Flags;
         internal uint Time;
         internal nuint ExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct TokenElevationData
+    {
+        internal int TokenIsElevated;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -225,4 +275,39 @@ internal static class NativeMethods
         virtualKey is KeyboardShortcutEngine.VkRControl
             or KeyboardShortcutEngine.VkLWin
             or KeyboardShortcutEngine.VkRWin;
+
+    internal static string QueryProcessImagePath(SafeProcessHandle processHandle)
+    {
+        var capacity = 32_768u;
+        var path = new StringBuilder((int)capacity);
+        if (!QueryFullProcessImageName(processHandle, 0, path, ref capacity))
+        {
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        return path.ToString();
+    }
+
+    internal static bool IsProcessElevated(SafeProcessHandle processHandle)
+    {
+        if (!OpenProcessToken(processHandle, TokenQuery, out var tokenHandle))
+        {
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        using (tokenHandle)
+        {
+            if (!GetTokenInformation(
+                tokenHandle,
+                TokenElevation,
+                out var elevation,
+                Marshal.SizeOf<TokenElevationData>(),
+                out _))
+            {
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            }
+
+            return elevation.TokenIsElevated != 0;
+        }
+    }
 }

@@ -7,6 +7,7 @@ shortcut away while retaining access to every installed keyboard layout.
 
 - Windows 10 or Windows 11, x64
 - .NET 10 SDK for development
+- WiX Toolset 4 packages are restored automatically when building the MSI
 - Visual Studio or Visual Studio Build Tools with:
   - Desktop development with C++
   - MSVC x86/x64 build tools
@@ -20,29 +21,34 @@ From a PowerShell terminal in the repository root:
 .\build.ps1
 ```
 
-This restores packages, builds the C# application and both native hook DLLs,
-runs all tests, and publishes the complete application to
-`artifacts\publish`.
+This restores packages, builds the tray, elevated broker, native hooks and x86
+host, runs all tests, publishes to `artifacts\publish`, and creates
+`artifacts\installer\SmartLang.msi`.
 
 Deploy the entire publish folder. These runtime files must remain together:
 
 - `SmartLang.exe`
+- `SmartLang.Broker.exe`
 - `SmartLang.NativeHook.dll` for 64-bit applications
 - `SmartLang.NativeHook32.dll` for 32-bit applications
+- `SmartLang.NativeHost32.exe`
 
-At runtime SmartLang loads per-process shadow copies of the native hook DLLs
-from `%LocalAppData%\SmartLang\NativeHooks`. This keeps the published DLLs
-replaceable while Windows still has injected hook modules loaded in other
-processes. Stale shadow copies are removed automatically when Windows releases
-them.
+The MSI installs these files under `%ProgramFiles%\SmartLang`. The elevated
+broker loads hook shadow copies from protected
+`%ProgramData%\SmartLang\NativeHooks`; portable fallback mode uses
+`%LocalAppData%\SmartLang\NativeHooks`. Stale copies are removed automatically.
 
 Optional arguments:
 
 ```powershell
 .\build.ps1 -Configuration Debug
 .\build.ps1 -SkipTests
+.\build.ps1 -SkipInstaller
 .\build.ps1 -OutputDirectory C:\Builds\SmartLang
 ```
+
+For signed releases, provide `-SigningCertificateThumbprint` and optionally
+`-TimestampUrl`. The build signs both executables, native files, and the MSI.
 
 ## Individual Commands
 
@@ -52,14 +58,15 @@ dotnet build SmartLang.slnx --no-restore
 dotnet test SmartLang.slnx --no-build --no-restore
 ```
 
-Create the portable, self-contained executable:
+Publish the self-contained tray and broker:
 
 ```powershell
 dotnet publish SmartLang\SmartLang.csproj -c Release -o artifacts\publish
+dotnet publish SmartLang.Broker\SmartLang.Broker.csproj -c Release -o artifacts\publish
 ```
 
-Building or publishing `SmartLang.csproj` automatically builds both native
-hook architectures through MSBuild.
+Building or publishing either application builds both native hook
+architectures and the x86 host through MSBuild.
 
 The application icon source is
 `SmartLang\Assets\smartlang-icon.png`; the embedded Windows icon is
@@ -74,12 +81,26 @@ The application icon source is
   shortcut active.
 - Closing Settings hides it. Use the tray menu's `Exit` command to stop the app.
 - Settings are stored in `%LocalAppData%\SmartLang\settings.json`.
-- Start-at-sign-in uses the current user's Windows `Run` registry key.
+- Administrator support is enabled by default for MSI installations.
+- A normal-integrity tray task and highest-privilege broker task start at
+  sign-in. Both tasks run only in the installing user's interactive session.
+- The broker owns all input hooks while healthy. If it is unavailable, the tray
+  acquires the same ownership lease and supports normal applications.
+- Tray **Exit** stops both processes for the current session without removing
+  sign-in configuration.
+- Settings include a broker health indicator and restart action.
 
 SmartLang uses a small native hook helper to activate the layout inside the
-foreground application's input thread.
-Running it as administrator is neither required nor recommended.
+foreground application's input thread. The tray remains unelevated; only the
+minimal broker and its hook hosts run elevated.
+
+Automatic administrator support is intentionally disabled for portable copies.
+Install the MSI under `Program Files` so a normal process cannot replace a
+binary that Task Scheduler later starts elevated.
 
 Windows does not load ordinary global hook DLLs into packaged WinRT
 applications. For their `Windows.UI.Core.CoreWindow` input windows, SmartLang
 posts `WM_INPUTLANGCHANGEREQUEST` directly and verifies the resulting HKL.
+
+Secure desktop and protected processes are outside SmartLang's supported
+surface.

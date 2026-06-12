@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="SmartLang.Broker/SmartLang.Broker.csproj" />
+  <Project Path="SmartLang.Runtime/SmartLang.Runtime.csproj" />
   <Project Path="SmartLang.Tests/SmartLang.Tests.csproj" />
   <Project Path="SmartLang/SmartLang.csproj" />
 </Solution>

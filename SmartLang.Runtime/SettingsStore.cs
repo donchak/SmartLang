@@ -34,9 +34,12 @@ public sealed class SettingsStore
                 File.ReadAllText(FilePath),
                 JsonOptions);
 
-            return settings is { Version: AppSettings.CurrentVersion }
-                ? settings
-                : new AppSettings();
+            return settings?.Version switch
+            {
+                AppSettings.CurrentVersion => settings,
+                1 => MigrateVersion1(settings),
+                _ => new AppSettings()
+            };
         }
         catch (JsonException)
         {
@@ -82,5 +85,12 @@ public sealed class SettingsStore
                 }
             }
         }
+    }
+
+    private static AppSettings MigrateVersion1(AppSettings settings)
+    {
+        settings.Version = AppSettings.CurrentVersion;
+        settings.AdministratorAppSupport = true;
+        return settings;
     }
 }

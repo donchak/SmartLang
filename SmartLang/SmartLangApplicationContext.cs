@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace SmartLang;
 
@@ -6,18 +8,22 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 {
     private readonly SingleInstanceCoordinator _singleInstance;
     private readonly SettingsStore _settingsStore = new();
-    private readonly StartupManager _startupManager = new();
+    private readonly ScheduledTaskManager _taskManager = new();
     private readonly LanguageCatalog _languageCatalog = new();
     private readonly Control _dispatcher = new();
     private readonly Icon _applicationIcon;
     private readonly NotifyIcon _notifyIcon;
+    private readonly System.Windows.Forms.Timer _healthTimer;
     private readonly System.Windows.Forms.Timer _hookRefreshTimer;
+    private readonly HookRuntimeController _fallbackRuntime;
+    private readonly BrokerClient _brokerClient;
 
     private AppSettings _settings;
-    private KeyboardLayoutService? _keyboardLayoutService;
-    private KeyboardHook? _keyboardHook;
     private SettingsForm? _settingsForm;
     private bool _isExiting;
+    private bool _brokerCheckInProgress;
+    private string _administratorStatus = "Administrator support has not been checked.";
+    private bool _administratorStatusIsError;
 
     public SmartLangApplicationContext(SingleInstanceCoordinator singleInstance)
     {
@@ -31,7 +37,7 @@ public sealed class SmartLangApplicationContext : ApplicationContext
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("Settings", null, (_, _) => OpenSettings());
-        menu.Items.Add("Exit", null, (_, _) => Exit());
+        menu.Items.Add("Exit", null, async (_, _) => await ExitAsync());
 
         _notifyIcon = new NotifyIcon
         {
@@ -42,22 +48,35 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         };
         _notifyIcon.DoubleClick += (_, _) => OpenSettings();
 
+        _fallbackRuntime = new HookRuntimeController(
+            Dispatch,
+            error => Dispatch(() => ShowNotification(
+                "Language switch failed",
+                error,
+                ToolTipIcon.Warning)));
+        _brokerClient = new BrokerClient(
+            Path.Combine(AppContext.BaseDirectory, "SmartLang.Broker.exe"),
+            Application.ProductVersion);
+
+        _healthTimer = new System.Windows.Forms.Timer { Interval = 3_000 };
+        _healthTimer.Tick += async (_, _) => await EvaluateBrokerAsync(startIfMissing: false);
         _hookRefreshTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
-        _hookRefreshTimer.Tick += (_, _) => _keyboardHook?.Refresh();
+        _hookRefreshTimer.Tick += (_, _) => _fallbackRuntime.Refresh();
 
         _dispatcher.CreateControl();
         _singleInstance.StartListening(() => Dispatch(OpenSettings));
-        _dispatcher.BeginInvoke(Initialize);
+        _dispatcher.BeginInvoke(async () => await InitializeAsync());
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            _healthTimer.Stop();
+            _healthTimer.Dispose();
             _hookRefreshTimer.Stop();
             _hookRefreshTimer.Dispose();
-            _keyboardHook?.Dispose();
-            _keyboardLayoutService?.Dispose();
+            _fallbackRuntime.Dispose();
             _settingsForm?.Dispose();
             _notifyIcon.ContextMenuStrip?.Dispose();
             _notifyIcon.Dispose();
@@ -68,46 +87,23 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         base.Dispose(disposing);
     }
 
-    private void Initialize()
+    private async Task InitializeAsync()
     {
         AppLog.Write(
-            $"Initializing. Primary={_settings.PrimaryLanguageTag}/{_settings.SecondaryLanguageTag}, " +
-            $"shortcuts={_settings.PrimaryShortcut}/{_settings.AllLayoutsShortcut}.");
+            $"Initializing tray. Primary={_settings.PrimaryLanguageTag}/{_settings.SecondaryLanguageTag}, " +
+            $"shortcuts={_settings.PrimaryShortcut}/{_settings.AllLayoutsShortcut}, " +
+            $"administratorSupport={_settings.AdministratorAppSupport}.");
 
-        try
+        var validationMessage = GetValidationMessage();
+        if (validationMessage is not null)
         {
-            _startupManager.Apply(_settings.StartWithWindows);
-        }
-        catch (Exception exception) when (
-            exception is UnauthorizedAccessException or IOException or InvalidOperationException)
-        {
-            ShowNotification("Startup setting", exception.Message, ToolTipIcon.Warning);
-        }
-
-        try
-        {
-            _keyboardLayoutService = new KeyboardLayoutService(_languageCatalog);
-        }
-        catch (Win32Exception exception)
-        {
-            AppLog.Write($"Could not initialize layout activator: {exception.Message}");
-            ShowNotification(
-                "Layout activator unavailable",
-                exception.Message,
-                ToolTipIcon.Error);
-            OpenSettings(exception.Message);
+            OpenSettings(validationMessage);
+            SetAdministratorStatus("Waiting for valid language settings.", isError: true);
             return;
         }
 
-        var validationMessage = GetValidationMessage();
-        if (validationMessage is null)
-        {
-            EnableKeyboardHook();
-        }
-        else
-        {
-            OpenSettings(validationMessage);
-        }
+        await EvaluateBrokerAsync(startIfMissing: true);
+        _healthTimer.Start();
     }
 
     private void OpenSettings() => OpenSettings(GetValidationMessage());
@@ -141,6 +137,11 @@ public sealed class SmartLangApplicationContext : ApplicationContext
     {
         var form = new SettingsForm(_applicationIcon);
         form.SetSaveHandler(SaveSettings);
+        form.SetRestartAdministratorSupportHandler(
+            async () => await RestartAdministratorSupportAsync());
+        form.SetAdministratorSupportStatus(
+            _administratorStatus,
+            _administratorStatusIsError);
         return form;
     }
 
@@ -156,7 +157,6 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         try
         {
             _settingsStore.Save(settings);
-            _startupManager.Apply(settings.StartWithWindows);
         }
         catch (Exception exception) when (
             exception is UnauthorizedAccessException or IOException or InvalidOperationException)
@@ -164,119 +164,229 @@ public sealed class SmartLangApplicationContext : ApplicationContext
             return $"Could not save settings: {exception.Message}";
         }
 
+        var previousAdministratorSupport = _settings.AdministratorAppSupport;
         _settings = settings.Copy();
-        DisableKeyboardHook();
-        EnableKeyboardHook();
+        _ = ApplySettingsAsync(previousAdministratorSupport);
         return null;
     }
 
-    private void EnableKeyboardHook()
+    private async Task ApplySettingsAsync(bool previousAdministratorSupport)
     {
-        if (_keyboardHook is not null)
+        _healthTimer.Start();
+        if (previousAdministratorSupport)
+        {
+            var saveResponse = await TrySendAsync(BrokerCommand.SaveSettings, _settings);
+            if (saveResponse is not null)
+            {
+                await TrySendAsync(BrokerCommand.ConfigureStartup, _settings);
+                if (!_settings.AdministratorAppSupport)
+                {
+                    await TrySendAsync(BrokerCommand.Stop);
+                }
+            }
+        }
+
+        if (_settings.AdministratorAppSupport)
+        {
+            await EvaluateBrokerAsync(startIfMissing: true);
+        }
+        else
+        {
+            TryConfigureTasksLocally();
+            UseFallback("Administrator support is disabled.");
+        }
+    }
+
+    private async Task EvaluateBrokerAsync(bool startIfMissing)
+    {
+        if (_isExiting || _brokerCheckInProgress)
+        {
+            return;
+        }
+
+        _brokerCheckInProgress = true;
+        try
+        {
+            if (!_settings.AdministratorAppSupport)
+            {
+                UseFallback("Administrator support is disabled.");
+                return;
+            }
+
+            if (!ProcessSecurity.IsProtectedInstallation(AppContext.BaseDirectory))
+            {
+                UseFallback(
+                    "Administrator support requires installation under Program Files.");
+                return;
+            }
+
+            var response = await TrySendAsync(BrokerCommand.GetStatus);
+            if (response is null && startIfMissing)
+            {
+                if (!_taskManager.RunBroker())
+                {
+                    TryLaunchBrokerElevated();
+                }
+
+                for (var attempt = 0; attempt < 10 && response is null; attempt++)
+                {
+                    await Task.Delay(200);
+                    response = await TrySendAsync(BrokerCommand.GetStatus);
+                }
+            }
+
+            if (response is null)
+            {
+                UseFallback("Administrator support is unavailable; normal applications still work.");
+                return;
+            }
+
+            if (!response.Success)
+            {
+                UseFallback(response.Error ?? "The administrator broker rejected the request.");
+                return;
+            }
+
+            if (!response.Status.HooksActive)
+            {
+                StopFallback();
+                response = await TrySendAsync(BrokerCommand.ActivateHooks);
+            }
+
+            if (response is { Success: true, Status.HooksActive: true })
+            {
+                StopFallback();
+                if (startIfMissing)
+                {
+                    await TrySendAsync(BrokerCommand.ConfigureStartup, _settings);
+                }
+
+                SetAdministratorStatus("Administrator application support is active.", isError: false);
+                return;
+            }
+
+            UseFallback(
+                response?.Error ?? response?.Status.LastError ??
+                "Administrator support could not acquire the input hooks.");
+        }
+        finally
+        {
+            _brokerCheckInProgress = false;
+        }
+    }
+
+    private async Task RestartAdministratorSupportAsync()
+    {
+        if (!_settings.AdministratorAppSupport)
+        {
+            SetAdministratorStatus(
+                "Enable administrator application support and save settings first.",
+                isError: true);
+            return;
+        }
+
+        SetAdministratorStatus("Restarting administrator application support...", isError: false);
+        if (!_taskManager.RunBroker())
+        {
+            TryLaunchBrokerElevated();
+        }
+
+        await EvaluateBrokerAsync(startIfMissing: true);
+    }
+
+    private void TryLaunchBrokerElevated()
+    {
+        var brokerPath = Path.Combine(AppContext.BaseDirectory, "SmartLang.Broker.exe");
+        if (!File.Exists(brokerPath))
         {
             return;
         }
 
         try
         {
-            _keyboardHook = new KeyboardHook(
-                GetEnabledShortcuts(),
-                shortcut => Dispatch(() => HandleShortcut(shortcut)));
-            _keyboardHook.Start();
-            _hookRefreshTimer.Start();
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = brokerPath,
+                UseShellExecute = true,
+                Verb = "runas",
+                WorkingDirectory = AppContext.BaseDirectory
+            });
         }
-        catch (Exception exception)
+        catch (Exception exception) when (
+            exception is Win32Exception or InvalidOperationException)
         {
-            _hookRefreshTimer.Stop();
-            _keyboardHook?.Dispose();
-            _keyboardHook = null;
-            ShowNotification("Keyboard hook unavailable", exception.Message, ToolTipIcon.Error);
-            OpenSettings(exception.Message);
+            AppLog.Write($"Elevated broker launch was declined or failed: {exception.Message}");
         }
     }
 
-    private void DisableKeyboardHook()
+    private async Task<BrokerResponse?> TrySendAsync(
+        BrokerCommand command,
+        AppSettings? settings = null)
+    {
+        try
+        {
+            return await _brokerClient.SendAsync(command, settings);
+        }
+        catch (Exception exception) when (
+            exception is IOException or TimeoutException or OperationCanceledException or
+            InvalidDataException or UnauthorizedAccessException or Win32Exception)
+        {
+            AppLog.Write($"Broker command {command} is unavailable: {exception.Message}");
+            return null;
+        }
+    }
+
+    private void UseFallback(string status)
+    {
+        try
+        {
+            if (!_fallbackRuntime.IsRunning && _fallbackRuntime.TryStart(_settings))
+            {
+                _hookRefreshTimer.Start();
+            }
+
+            SetAdministratorStatus(status, isError: true);
+        }
+        catch (Win32Exception exception)
+        {
+            SetAdministratorStatus(
+                $"No input hooks are active: {exception.Message}",
+                isError: true);
+        }
+    }
+
+    private void StopFallback()
     {
         _hookRefreshTimer.Stop();
-        _keyboardHook?.Dispose();
-        _keyboardHook = null;
+        _fallbackRuntime.Stop();
     }
 
-    private void HandleShortcut(ShortcutKind shortcut)
+    private void TryConfigureTasksLocally()
     {
         try
         {
-            HandleShortcutCore(shortcut);
+            _taskManager.Configure(
+                _settings.StartWithWindows,
+                _settings.AdministratorAppSupport);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (
+            exception is InvalidOperationException or UnauthorizedAccessException or COMException)
         {
-            AppLog.Write(
-                $"Shortcut {shortcut} failed with {exception.GetType().Name}: {exception.Message}");
-            ShowNotification(
-                "Language switch failed",
-                $"Unexpected error. Details were written to {AppLog.FilePath}.",
-                ToolTipIcon.Error);
-        }
-    }
-
-    private void HandleShortcutCore(ShortcutKind shortcut)
-    {
-        var validationMessage = GetValidationMessage();
-        if (validationMessage is not null)
-        {
-            DisableKeyboardHook();
-            ShowNotification("Settings need attention", validationMessage, ToolTipIcon.Warning);
-            OpenSettings(validationMessage);
-            return;
-        }
-
-        if (_keyboardLayoutService is null)
-        {
-            DisableKeyboardHook();
-            return;
-        }
-
-        bool switched;
-        if (shortcut == _settings.PrimaryShortcut)
-        {
-            switched = _keyboardLayoutService.TogglePrimaryLanguages(_settings);
-        }
-        else if (_settings.AllLayoutsShortcut != ShortcutKind.None &&
-            shortcut == _settings.AllLayoutsShortcut)
-        {
-            switched = _keyboardLayoutService.CycleAllLayouts();
-        }
-        else
-        {
-            return;
-        }
-
-        if (!switched)
-        {
-            AppLog.Write($"Shortcut {shortcut} did not change the active layout.");
-            ShowNotification(
-                "Language switch failed",
-                $"Windows did not accept the layout change. Details were written to {AppLog.FilePath}.",
-                ToolTipIcon.Warning);
-        }
-        else
-        {
-            AppLog.Write($"Shortcut {shortcut} completed.");
+            AppLog.Write($"Could not configure startup tasks locally: {exception.Message}");
         }
     }
 
     private string? GetValidationMessage() =>
         SettingsValidator.Validate(_settings, _languageCatalog.GetLanguageOptions());
 
-    private IReadOnlyCollection<ShortcutKind> GetEnabledShortcuts()
+    private void SetAdministratorStatus(string status, bool isError)
     {
-        var shortcuts = new HashSet<ShortcutKind> { _settings.PrimaryShortcut };
-        if (_settings.AllLayoutsShortcut != ShortcutKind.None)
-        {
-            shortcuts.Add(_settings.AllLayoutsShortcut);
-        }
-
-        return shortcuts;
+        _administratorStatus = status;
+        _administratorStatusIsError = isError;
+        _notifyIcon.Text = isError
+            ? "SmartLang - limited administrator support"
+            : "SmartLang - administrator support active";
+        _settingsForm?.SetAdministratorSupportStatus(status, isError);
     }
 
     private void ShowNotification(string title, string text, ToolTipIcon icon)
@@ -303,7 +413,7 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         }
     }
 
-    private void Exit()
+    private async Task ExitAsync()
     {
         if (_isExiting)
         {
@@ -311,7 +421,13 @@ public sealed class SmartLangApplicationContext : ApplicationContext
         }
 
         _isExiting = true;
-        DisableKeyboardHook();
+        _healthTimer.Stop();
+        StopFallback();
+        if (_settings.AdministratorAppSupport)
+        {
+            await TrySendAsync(BrokerCommand.Stop);
+        }
+
         _settingsForm?.AllowClose();
         _settingsForm?.Close();
         _notifyIcon.Visible = false;

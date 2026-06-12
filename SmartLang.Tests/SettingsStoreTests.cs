@@ -17,7 +17,8 @@ public sealed class SettingsStoreTests : IDisposable
             SecondaryLanguageTag = "fr-FR",
             PrimaryShortcut = ShortcutKind.WinSpace,
             AllLayoutsShortcut = ShortcutKind.CtrlShift,
-            StartWithWindows = true
+            StartWithWindows = true,
+            AdministratorAppSupport = false
         };
 
         store.Save(expected);
@@ -29,6 +30,9 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(expected.PrimaryShortcut, actual.PrimaryShortcut);
         Assert.Equal(expected.AllLayoutsShortcut, actual.AllLayoutsShortcut);
         Assert.Equal(expected.StartWithWindows, actual.StartWithWindows);
+        Assert.Equal(
+            expected.AdministratorAppSupport,
+            actual.AdministratorAppSupport);
     }
 
     [Fact]
@@ -64,7 +68,7 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void OlderSchemaVersionReturnsDefaults()
+    public void UnknownOlderSchemaVersionReturnsDefaults()
     {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "settings.json");
@@ -84,7 +88,33 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(AppSettings.CurrentVersion, settings.Version);
         Assert.Empty(settings.PrimaryLanguageTag);
         Assert.Empty(settings.SecondaryLanguageTag);
+        Assert.True(settings.StartWithWindows);
+        Assert.True(settings.AdministratorAppSupport);
+    }
+
+    [Fact]
+    public void VersionOneSettingsAreMigratedWithAdministratorSupportEnabled()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "Version": 1,
+              "PrimaryLanguageTag": "en-US",
+              "SecondaryLanguageTag": "fr-FR",
+              "PrimaryShortcut": "CtrlShift",
+              "AllLayoutsShortcut": "WinSpace",
+              "StartWithWindows": false
+            }
+            """);
+
+        var settings = new SettingsStore(path).Load();
+
+        Assert.Equal(AppSettings.CurrentVersion, settings.Version);
+        Assert.Equal("en-US", settings.PrimaryLanguageTag);
+        Assert.Equal("fr-FR", settings.SecondaryLanguageTag);
         Assert.False(settings.StartWithWindows);
+        Assert.True(settings.AdministratorAppSupport);
     }
 
     [Fact]
