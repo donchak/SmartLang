@@ -1,7 +1,7 @@
 <Project>
 
   <PropertyGroup>
-    <SmartLangVersion>0.7.1</SmartLangVersion>
+    <SmartLangVersion>0.8.0</SmartLangVersion>
   </PropertyGroup>
 
 </Project>

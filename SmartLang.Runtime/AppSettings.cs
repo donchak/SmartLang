@@ -1,7 +1,7 @@
 namespace SmartLang;
 
 public sealed class AppSettings {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     public int Version { get; set; } = CurrentVersion;
 
@@ -13,6 +13,8 @@ public sealed class AppSettings {
 
     public ShortcutKind AllLayoutsShortcut { get; set; } = ShortcutKind.WinSpace;
 
+    public SwitchingMode SwitchingMode { get; set; } = SwitchingMode.PrimaryLanguages;
+
     public bool StartWithWindows { get; set; } = true;
 
     public bool AdministratorAppSupport { get; set; } = true;
@@ -23,6 +25,7 @@ public sealed class AppSettings {
         SecondaryLanguageTag = SecondaryLanguageTag,
         PrimaryShortcut = PrimaryShortcut,
         AllLayoutsShortcut = AllLayoutsShortcut,
+        SwitchingMode = SwitchingMode,
         StartWithWindows = StartWithWindows,
         AdministratorAppSupport = AdministratorAppSupport
     };

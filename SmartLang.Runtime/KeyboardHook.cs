@@ -5,7 +5,7 @@ namespace SmartLang;
 
 public sealed class KeyboardHook: IDisposable {
     readonly KeyboardShortcutEngine engine;
-    readonly Action<ShortcutKind> shortcutTriggered;
+    readonly Action<ShortcutProcessingResult> shortcutTriggered;
     readonly NativeMethods.LowLevelKeyboardProc keyboardCallback;
     readonly NativeMethods.LowLevelMouseProc mouseCallback;
     nint keyboardHookHandle;
@@ -13,7 +13,7 @@ public sealed class KeyboardHook: IDisposable {
 
     public KeyboardHook(
         IEnumerable<ShortcutKind> enabledShortcuts,
-        Action<ShortcutKind> shortcutTriggered) {
+        Action<ShortcutProcessingResult> shortcutTriggered) {
         engine = new KeyboardShortcutEngine(enabledShortcuts);
         this.shortcutTriggered = shortcutTriggered;
         keyboardCallback = KeyboardHookCallback;
@@ -155,7 +155,7 @@ public sealed class KeyboardHook: IDisposable {
 
         if(result.TriggeredShortcut is { } shortcut) {
             AppLog.Write($"Keyboard hook recognized {shortcut}.");
-            shortcutTriggered(shortcut);
+            shortcutTriggered(result);
         }
 
         return result.Suppress ? 1 : NativeMethods.CallNextHookEx(keyboardHookHandle, code, wParam, lParam);

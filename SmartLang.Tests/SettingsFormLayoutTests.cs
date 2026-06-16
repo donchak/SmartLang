@@ -6,11 +6,11 @@ namespace SmartLang.Tests;
 public sealed class SettingsFormLayoutTests {
     [Fact]
     public void FooterShowsVersionAndBothButtons() {
-        using var form = new SettingsForm(SystemIcons.Application, "0.7.1");
+        using var form = new SettingsForm(SystemIcons.Application, "0.8.0");
         form.CreateControl();
         form.PerformLayout();
 
-        var version = FindControl(form, "SmartLang v0.7.1");
+        var version = FindControl(form, "SmartLang v0.8.0");
         var save = FindControl(form, "Save");
         var cancel = FindControl(form, "Cancel");
 

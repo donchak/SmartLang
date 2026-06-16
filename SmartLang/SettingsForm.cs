@@ -3,6 +3,7 @@ namespace SmartLang;
 public sealed class SettingsForm: Form {
     readonly ComboBox primaryLanguage = new();
     readonly ComboBox secondaryLanguage = new();
+    readonly ComboBox switchingMode = new();
     readonly ComboBox primaryShortcut = new();
     readonly ComboBox allLayoutsShortcut = new();
     readonly CheckBox startWithWindows = new();
@@ -22,15 +23,21 @@ public sealed class SettingsForm: Form {
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = true;
-        ClientSize = new Size(560, 390);
+        ClientSize = new Size(560, 428);
         MinimumSize = Size;
         MaximumSize = Size;
 
         ConfigureCombo(primaryLanguage);
         ConfigureCombo(secondaryLanguage);
+        ConfigureCombo(switchingMode);
         ConfigureCombo(primaryShortcut);
         ConfigureCombo(allLayoutsShortcut);
 
+        var switchingModeOptions = new[]
+        {
+            new SwitchingModeOption(SwitchingMode.PrimaryLanguages, "Primary languages"),
+            new SwitchingModeOption(SwitchingMode.RecentLanguages, "Recently used languages")
+        };
         var primaryShortcutOptions = new[]
         {
             new ShortcutOption(ShortcutKind.CtrlShift, "Ctrl + Shift"),
@@ -42,6 +49,8 @@ public sealed class SettingsForm: Form {
             new ShortcutOption(ShortcutKind.CtrlShift, "Ctrl + Shift"),
             new ShortcutOption(ShortcutKind.WinSpace, "Win + Space")
         };
+        switchingMode.DataSource = switchingModeOptions;
+        switchingMode.DisplayMember = nameof(SwitchingModeOption.DisplayName);
         primaryShortcut.DataSource = primaryShortcutOptions;
         primaryShortcut.DisplayMember = nameof(ShortcutOption.DisplayName);
         allLayoutsShortcut.DataSource = allLayoutsShortcutOptions;
@@ -103,11 +112,11 @@ public sealed class SettingsForm: Form {
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
             ColumnCount = 2,
-            RowCount = 9
+            RowCount = 10
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        for(var row = 0; row < 7; row++) {
+        for(var row = 0; row < 8; row++) {
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         }
 
@@ -116,18 +125,19 @@ public sealed class SettingsForm: Form {
 
         AddRow(layout, 0, "First primary language:", primaryLanguage);
         AddRow(layout, 1, "Second primary language:", secondaryLanguage);
-        AddRow(layout, 2, "Switch primary languages:", primaryShortcut);
-        AddRow(layout, 3, "Cycle all layouts:", allLayoutsShortcut);
-        layout.Controls.Add(startWithWindows, 0, 4);
+        AddRow(layout, 2, "Switching mode:", switchingMode);
+        AddRow(layout, 3, "Switch primary languages:", primaryShortcut);
+        AddRow(layout, 4, "Cycle all layouts:", allLayoutsShortcut);
+        layout.Controls.Add(startWithWindows, 0, 5);
         layout.SetColumnSpan(startWithWindows, 2);
-        layout.Controls.Add(administratorAppSupport, 0, 5);
+        layout.Controls.Add(administratorAppSupport, 0, 6);
         layout.SetColumnSpan(administratorAppSupport, 2);
-        layout.Controls.Add(administratorStatus, 0, 6);
-        layout.Controls.Add(restartAdministratorSupportButton, 1, 6);
-        layout.Controls.Add(status, 0, 7);
+        layout.Controls.Add(administratorStatus, 0, 7);
+        layout.Controls.Add(restartAdministratorSupportButton, 1, 7);
+        layout.Controls.Add(status, 0, 8);
         layout.SetColumnSpan(status, 2);
-        layout.Controls.Add(version, 0, 8);
-        layout.Controls.Add(buttons, 1, 8);
+        layout.Controls.Add(version, 0, 9);
+        layout.Controls.Add(buttons, 1, 9);
 
         Controls.Add(layout);
         FormClosing += HandleFormClosing;
@@ -154,6 +164,7 @@ public sealed class SettingsForm: Form {
 
         SelectLanguage(primaryLanguage, settings.PrimaryLanguageTag, fallbackIndex: 0);
         SelectLanguage(secondaryLanguage, settings.SecondaryLanguageTag, fallbackIndex: languages.Count > 1 ? 1 : 0);
+        SelectSwitchingMode(switchingMode, settings.SwitchingMode);
         SelectShortcut(primaryShortcut, settings.PrimaryShortcut);
         SelectShortcut(allLayoutsShortcut, settings.AllLayoutsShortcut);
         startWithWindows.Checked = settings.StartWithWindows;
@@ -173,6 +184,7 @@ public sealed class SettingsForm: Form {
     void Save() {
         if(primaryLanguage.SelectedItem is not LanguageOption primary ||
             secondaryLanguage.SelectedItem is not LanguageOption secondary ||
+            this.switchingMode.SelectedItem is not SwitchingModeOption switchingMode ||
             this.primaryShortcut.SelectedItem is not ShortcutOption primaryShortcut ||
             this.allLayoutsShortcut.SelectedItem is not ShortcutOption allLayoutsShortcut) {
             status.Text = "Complete all settings before saving.";
@@ -182,6 +194,7 @@ public sealed class SettingsForm: Form {
         var settings = new AppSettings {
             PrimaryLanguageTag = primary.LanguageTag,
             SecondaryLanguageTag = secondary.LanguageTag,
+            SwitchingMode = switchingMode.Mode,
             PrimaryShortcut = primaryShortcut.Kind,
             AllLayoutsShortcut = allLayoutsShortcut.Kind,
             StartWithWindows = startWithWindows.Checked,
@@ -255,6 +268,18 @@ public sealed class SettingsForm: Form {
             }
         }
     }
+
+    static void SelectSwitchingMode(ComboBox comboBox, SwitchingMode mode) {
+        for(var index = 0; index < comboBox.Items.Count; index++) {
+            if(comboBox.Items[index] is SwitchingModeOption option &&
+                option.Mode == mode) {
+                comboBox.SelectedIndex = index;
+                return;
+            }
+        }
+    }
+
+    sealed record SwitchingModeOption(SwitchingMode Mode, string DisplayName);
 
     sealed record ShortcutOption(ShortcutKind Kind, string DisplayName);
 }
