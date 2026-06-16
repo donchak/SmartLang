@@ -124,21 +124,16 @@ public sealed class HookRuntimeController: IDisposable {
               shortcut == settings.AllLayoutsShortcut &&
               layoutService!.CycleAllLayouts();
 
-    bool HandleRecentLanguagesShortcut(ShortcutKind shortcut, int shortcutPressCount) {
-        if(shortcut == settings!.PrimaryShortcut) {
-            return shortcutPressCount <= 1
-                ? layoutService!.SwitchToPreviousObservedLayout()
-                : layoutService!.CycleAllLayouts();
-        }
-
-        return settings.AllLayoutsShortcut != ShortcutKind.None &&
-            shortcut == settings.AllLayoutsShortcut &&
-            layoutService!.CycleAllLayouts();
-    }
+    bool HandleRecentLanguagesShortcut(ShortcutKind shortcut, int shortcutPressCount) =>
+        shortcut == settings!.PrimaryShortcut &&
+        (shortcutPressCount <= 1
+            ? layoutService!.SwitchToPreviousObservedLayout()
+            : layoutService!.CycleAllLayouts());
 
     static IReadOnlyCollection<ShortcutKind> GetEnabledShortcuts(AppSettings settings) {
         var shortcuts = new HashSet<ShortcutKind> { settings.PrimaryShortcut };
-        if(settings.AllLayoutsShortcut != ShortcutKind.None) {
+        if(settings.SwitchingMode == SwitchingMode.PrimaryLanguages &&
+            settings.AllLayoutsShortcut != ShortcutKind.None) {
             shortcuts.Add(settings.AllLayoutsShortcut);
         }
 

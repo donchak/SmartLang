@@ -6,6 +6,8 @@ public sealed class SettingsForm: Form {
     readonly ComboBox switchingMode = new();
     readonly ComboBox primaryShortcut = new();
     readonly ComboBox allLayoutsShortcut = new();
+    readonly Label primaryShortcutLabel = new();
+    readonly Label allLayoutsShortcutLabel = new();
     readonly CheckBox startWithWindows = new();
     readonly CheckBox administratorAppSupport = new();
     readonly Label administratorStatus = new();
@@ -55,6 +57,7 @@ public sealed class SettingsForm: Form {
         primaryShortcut.DisplayMember = nameof(ShortcutOption.DisplayName);
         allLayoutsShortcut.DataSource = allLayoutsShortcutOptions;
         allLayoutsShortcut.DisplayMember = nameof(ShortcutOption.DisplayName);
+        switchingMode.SelectedIndexChanged += (_, _) => ApplySwitchingModeUi();
 
         startWithWindows.Text = "Start SmartLang when I sign in to Windows";
         startWithWindows.AutoSize = true;
@@ -126,8 +129,8 @@ public sealed class SettingsForm: Form {
         AddRow(layout, 0, "First primary language:", primaryLanguage);
         AddRow(layout, 1, "Second primary language:", secondaryLanguage);
         AddRow(layout, 2, "Switching mode:", switchingMode);
-        AddRow(layout, 3, "Switch primary languages:", primaryShortcut);
-        AddRow(layout, 4, "Cycle all layouts:", allLayoutsShortcut);
+        AddRow(layout, 3, primaryShortcutLabel, "Switch primary languages:", primaryShortcut);
+        AddRow(layout, 4, allLayoutsShortcutLabel, "Cycle all layouts:", allLayoutsShortcut);
         layout.Controls.Add(startWithWindows, 0, 5);
         layout.SetColumnSpan(startWithWindows, 2);
         layout.Controls.Add(administratorAppSupport, 0, 6);
@@ -170,6 +173,7 @@ public sealed class SettingsForm: Form {
         startWithWindows.Checked = settings.StartWithWindows;
         administratorAppSupport.Checked = settings.AdministratorAppSupport;
         status.Text = validationMessage ?? string.Empty;
+        ApplySwitchingModeUi();
     }
 
     public void SetAdministratorSupportStatus(string status, bool isError) {
@@ -235,13 +239,29 @@ public sealed class SettingsForm: Form {
         int row,
         string labelText,
         Control control) {
-        var label = new Label {
-            Text = labelText,
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft
-        };
+        AddRow(layout, row, new Label(), labelText, control);
+    }
+
+    static void AddRow(
+        TableLayoutPanel layout,
+        int row,
+        Label label,
+        string labelText,
+        Control control) {
+        label.Text = labelText;
+        label.Dock = DockStyle.Fill;
+        label.TextAlign = ContentAlignment.MiddleLeft;
         layout.Controls.Add(label, 0, row);
         layout.Controls.Add(control, 1, row);
+    }
+
+    void ApplySwitchingModeUi() {
+        var recentMode = switchingMode.SelectedItem is SwitchingModeOption option &&
+            option.Mode == SwitchingMode.RecentLanguages;
+
+        primaryShortcutLabel.Text = recentMode ? "Switch languages:" : "Switch primary languages:";
+        allLayoutsShortcut.Enabled = !recentMode;
+        allLayoutsShortcutLabel.Enabled = !recentMode;
     }
 
     static void SelectLanguage(

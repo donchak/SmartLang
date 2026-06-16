@@ -29,6 +29,15 @@ public sealed class SettingsValidatorTests {
     }
 
     [Fact]
+    public void SameShortcutIsAcceptedForRecentLanguageMode() {
+        var settings = CreateValidSettings();
+        settings.SwitchingMode = SwitchingMode.RecentLanguages;
+        settings.AllLayoutsShortcut = settings.PrimaryShortcut;
+
+        Assert.Null(SettingsValidator.Validate(settings, Languages));
+    }
+
+    [Fact]
     public void NoneIsAcceptedForAllLayoutsShortcut() {
         var settings = CreateValidSettings();
         settings.AllLayoutsShortcut = ShortcutKind.None;
