@@ -19,7 +19,8 @@ public static class SettingsValidator {
             return "Select a shortcut for switching primary languages.";
         }
 
-        if(settings.AllLayoutsShortcut != ShortcutKind.None &&
+        if(settings.SwitchingMode == SwitchingMode.PrimaryLanguages &&
+            settings.AllLayoutsShortcut != ShortcutKind.None &&
             settings.PrimaryShortcut == settings.AllLayoutsShortcut) {
             return "The two commands must use different shortcuts.";
         }

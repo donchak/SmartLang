@@ -100,6 +100,20 @@ public sealed class KeyboardLayoutServiceTests {
     }
 
     [Fact]
+    public void ObserveCurrentLayoutTracksPreviousAndCurrentLayouts() {
+        var service = CreateService();
+        var first = Layout(10, "en-US");
+        var second = Layout(20, "fr-FR");
+
+        service.ObserveCurrentLayout(first);
+        service.ObserveCurrentLayout(second);
+        service.ObserveCurrentLayout(second);
+
+        Assert.Equal(second, service.CurrentObservedLayout);
+        Assert.Equal(first, service.PreviousObservedLayout);
+    }
+
+    [Fact]
     public void ActivateLayoutUsesExactTargetHandle() {
         var activator = new RecordingInputProfileActivator();
         var service = new KeyboardLayoutService(new LanguageCatalog(), activator);

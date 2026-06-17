@@ -35,6 +35,7 @@ public sealed class KeyboardShortcutEngineTests {
 
         Assert.True(secondTrigger.Suppress);
         Assert.Equal(ShortcutKind.CtrlShift, secondTrigger.TriggeredShortcut);
+        Assert.Equal(2, secondTrigger.ShortcutPressCount);
         Assert.True(engine.Process(control, isKeyDown: false).Suppress);
     }
 
@@ -119,8 +120,23 @@ public sealed class KeyboardShortcutEngineTests {
 
         Assert.True(secondTrigger.Suppress);
         Assert.Equal(ShortcutKind.WinSpace, secondTrigger.TriggeredShortcut);
+        Assert.Equal(2, secondTrigger.ShortcutPressCount);
         Assert.True(engine.Process(KeyboardShortcutEngine.VkSpace, isKeyDown: false).Suppress);
         Assert.True(engine.Process(windowsKey, isKeyDown: false).Suppress);
+    }
+
+    [Fact]
+    public void ShortcutPressCountResetsAfterModifierRelease() {
+        var engine = new KeyboardShortcutEngine();
+
+        engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true);
+        engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true);
+        Assert.Equal(1, engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: false).ShortcutPressCount);
+        engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: false);
+
+        engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: true);
+        engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true);
+        Assert.Equal(1, engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: false).ShortcutPressCount);
     }
 
     [Fact]

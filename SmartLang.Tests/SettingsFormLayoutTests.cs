@@ -6,11 +6,11 @@ namespace SmartLang.Tests;
 public sealed class SettingsFormLayoutTests {
     [Fact]
     public void FooterShowsVersionAndBothButtons() {
-        using var form = new SettingsForm(SystemIcons.Application, "0.7.1");
+        using var form = new SettingsForm(SystemIcons.Application, "0.8.0");
         form.CreateControl();
         form.PerformLayout();
 
-        var version = FindControl(form, "SmartLang v0.7.1");
+        var version = FindControl(form, "SmartLang v0.8.0");
         var save = FindControl(form, "Save");
         var cancel = FindControl(form, "Cancel");
 
@@ -22,6 +22,31 @@ public sealed class SettingsFormLayoutTests {
         AssertContainedByParent(cancel);
         Assert.Same(version.Parent, save.Parent?.Parent);
         Assert.Same(version.Parent, cancel.Parent?.Parent);
+    }
+
+    [Fact]
+    public void RecentLanguageModeRelabelsPrimaryShortcutAndDisablesAllLayoutsShortcut() {
+        using var form = new SettingsForm(SystemIcons.Application, "0.8.0");
+        form.LoadSettings(
+            new AppSettings {
+                PrimaryLanguageTag = "en-US",
+                SecondaryLanguageTag = "fr-FR",
+                SwitchingMode = SwitchingMode.RecentLanguages,
+                PrimaryShortcut = ShortcutKind.CtrlShift,
+                AllLayoutsShortcut = ShortcutKind.WinSpace
+            },
+            [new LanguageOption("en-US", "English"), new LanguageOption("fr-FR", "French")],
+            validationMessage: null);
+        form.CreateControl();
+        form.PerformLayout();
+
+        var primaryShortcutLabel = FindControl(form, "Switch languages:");
+        var allLayoutsShortcutLabel = FindControl(form, "Cycle all layouts:");
+        var allLayoutsShortcut = GetRowControl(allLayoutsShortcutLabel, column: 1);
+
+        Assert.True(primaryShortcutLabel.Enabled);
+        Assert.False(allLayoutsShortcutLabel.Enabled);
+        Assert.False(allLayoutsShortcut.Enabled);
     }
 
     static Control FindControl(Control root, string text) {
@@ -62,5 +87,12 @@ public sealed class SettingsFormLayoutTests {
     static void AssertContainedByParent(Control control) {
         Assert.NotNull(control.Parent);
         Assert.True(control.Parent.ClientRectangle.Contains(control.Bounds), $"{control.Text} is clipped.");
+    }
+
+    static Control GetRowControl(Control rowControl, int column) {
+        var layout = Assert.IsType<TableLayoutPanel>(rowControl.Parent);
+        var position = layout.GetPositionFromControl(rowControl);
+        return layout.GetControlFromPosition(column, position.Row)
+            ?? throw new InvalidOperationException($"Control at column {column}, row {position.Row} was not found.");
     }
 }

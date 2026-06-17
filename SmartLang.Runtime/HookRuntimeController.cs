@@ -42,7 +42,7 @@ public sealed class HookRuntimeController: IDisposable {
             layoutService = new KeyboardLayoutService(new LanguageCatalog());
             keyboardHook = new KeyboardHook(
                 GetEnabledShortcuts(this.settings),
-                shortcut => dispatch(() => HandleShortcut(shortcut)));
+                result => dispatch(() => HandleShortcut(result)));
             keyboardHook.Start();
             this.ownershipMutex = ownershipMutex;
             AppLog.Write("Hook runtime acquired input ownership.");
@@ -93,17 +93,20 @@ public sealed class HookRuntimeController: IDisposable {
         GC.SuppressFinalize(this);
     }
 
-    void HandleShortcut(ShortcutKind shortcut) {
+    void HandleShortcut(ShortcutProcessingResult result) {
         if(settings is null || layoutService is null) {
             return;
         }
 
+        var shortcut = result.TriggeredShortcut;
+        if(shortcut is null) {
+            return;
+        }
+
         try {
-            var switched = shortcut == settings.PrimaryShortcut
-                ? layoutService.TogglePrimaryLanguages(settings)
-                : settings.AllLayoutsShortcut != ShortcutKind.None &&
-                  shortcut == settings.AllLayoutsShortcut &&
-                  layoutService.CycleAllLayouts();
+            var switched = settings.SwitchingMode == SwitchingMode.RecentLanguages
+                ? HandleRecentLanguagesShortcut(shortcut.Value, result.ShortcutPressCount)
+                : HandlePrimaryLanguagesShortcut(shortcut.Value);
 
             if(!switched) {
                 failure($"Windows did not accept the {shortcut} layout change.");
@@ -114,9 +117,23 @@ public sealed class HookRuntimeController: IDisposable {
         }
     }
 
+    bool HandlePrimaryLanguagesShortcut(ShortcutKind shortcut) =>
+        shortcut == settings!.PrimaryShortcut
+            ? layoutService!.TogglePrimaryLanguages(settings)
+            : settings.AllLayoutsShortcut != ShortcutKind.None &&
+              shortcut == settings.AllLayoutsShortcut &&
+              layoutService!.CycleAllLayouts();
+
+    bool HandleRecentLanguagesShortcut(ShortcutKind shortcut, int shortcutPressCount) =>
+        shortcut == settings!.PrimaryShortcut &&
+        (shortcutPressCount <= 1
+            ? layoutService!.SwitchToPreviousObservedLayout()
+            : layoutService!.CycleAllLayouts());
+
     static IReadOnlyCollection<ShortcutKind> GetEnabledShortcuts(AppSettings settings) {
         var shortcuts = new HashSet<ShortcutKind> { settings.PrimaryShortcut };
-        if(settings.AllLayoutsShortcut != ShortcutKind.None) {
+        if(settings.SwitchingMode == SwitchingMode.PrimaryLanguages &&
+            settings.AllLayoutsShortcut != ShortcutKind.None) {
             shortcuts.Add(settings.AllLayoutsShortcut);
         }
 

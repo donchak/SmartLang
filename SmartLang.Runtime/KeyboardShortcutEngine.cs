@@ -5,7 +5,8 @@ public readonly record struct SyntheticKeyEvent(int VirtualKey, bool IsKeyDown);
 public sealed record ShortcutProcessingResult(
     bool Suppress,
     ShortcutKind? TriggeredShortcut = null,
-    IReadOnlyList<SyntheticKeyEvent>? ReplayEvents = null) {
+    IReadOnlyList<SyntheticKeyEvent>? ReplayEvents = null,
+    int ShortcutPressCount = 0) {
     public static readonly ShortcutProcessingResult Pass = new(false);
 }
 
@@ -24,6 +25,8 @@ public sealed class KeyboardShortcutEngine {
     readonly HashSet<int> consumedKeys = [];
     readonly bool ctrlShiftEnabled;
     readonly bool winSpaceEnabled;
+    ShortcutKind? activeShortcutSession;
+    int activeShortcutPressCount;
 
     public KeyboardShortcutEngine(IEnumerable<ShortcutKind>? enabledShortcuts = null) {
         var shortcuts = enabledShortcuts?.ToHashSet() ??
@@ -37,6 +40,8 @@ public sealed class KeyboardShortcutEngine {
         bufferedModifiers.Clear();
         replayedModifiers.Clear();
         consumedKeys.Clear();
+        activeShortcutSession = null;
+        activeShortcutPressCount = 0;
     }
 
     public ShortcutProcessingResult Process(int virtualKey, bool isKeyDown, bool isInjected = false) {
@@ -54,6 +59,7 @@ public sealed class KeyboardShortcutEngine {
         if(consumedKeys.Contains(virtualKey)) {
             if(!isKeyDown) {
                 consumedKeys.Remove(virtualKey);
+                ResetShortcutSessionIfNoModifierIsHeld();
             }
 
             return new ShortcutProcessingResult(true);
@@ -81,7 +87,7 @@ public sealed class KeyboardShortcutEngine {
 
             consumedKeys.Add(VkSpace);
             bufferedModifiers.Clear();
-            return new ShortcutProcessingResult(true, ShortcutKind.WinSpace);
+            return TriggerShortcut(ShortcutKind.WinSpace);
         }
 
         if(bufferedModifiers.Count > 0 && isKeyDown) {
@@ -139,7 +145,7 @@ public sealed class KeyboardShortcutEngine {
             }
 
             bufferedModifiers.Clear();
-            return new ShortcutProcessingResult(true, ShortcutKind.CtrlShift);
+            return TriggerShortcut(ShortcutKind.CtrlShift);
         }
 
         var replay = bufferedModifiers
@@ -157,6 +163,17 @@ public sealed class KeyboardShortcutEngine {
         return new ShortcutProcessingResult(true, ReplayEvents: replay);
     }
 
+    ShortcutProcessingResult TriggerShortcut(ShortcutKind shortcut) {
+        if(activeShortcutSession == shortcut) {
+            activeShortcutPressCount++;
+        } else {
+            activeShortcutSession = shortcut;
+            activeShortcutPressCount = 1;
+        }
+
+        return new ShortcutProcessingResult(true, shortcut, ShortcutPressCount: activeShortcutPressCount);
+    }
+
     ShortcutProcessingResult ReplayBufferedModifiers(bool suppressCurrentEvent) {
         var replay = bufferedModifiers
             .Select(key => new SyntheticKeyEvent(key, true))
@@ -170,6 +187,8 @@ public sealed class KeyboardShortcutEngine {
         }
 
         bufferedModifiers.Clear();
+        activeShortcutSession = null;
+        activeShortcutPressCount = 0;
         return new ShortcutProcessingResult(suppressCurrentEvent, ReplayEvents: replay);
     }
 
@@ -199,6 +218,13 @@ public sealed class KeyboardShortcutEngine {
         bufferedModifiers.Any(IsControl) &&
         bufferedModifiers.Any(IsShift) &&
         !bufferedModifiers.Any(IsWin);
+
+    void ResetShortcutSessionIfNoModifierIsHeld() {
+        if(!physicallyDown.Any(IsWatchedModifier)) {
+            activeShortcutSession = null;
+            activeShortcutPressCount = 0;
+        }
+    }
 
     bool IsWatchedModifier(int key) =>
         (ctrlShiftEnabled && (IsControl(key) || IsShift(key))) ||

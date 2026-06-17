@@ -86,6 +86,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         AppLog.Write(
             $"Initializing tray. Primary={settings.PrimaryLanguageTag}/{settings.SecondaryLanguageTag}, " +
             $"shortcuts={settings.PrimaryShortcut}/{settings.AllLayoutsShortcut}, " +
+            $"switchingMode={settings.SwitchingMode}, " +
             $"administratorSupport={settings.AdministratorAppSupport}.");
 
         var validationMessage = GetValidationMessage();

@@ -28,7 +28,8 @@ public sealed class SettingsStore {
 
             return settings?.Version switch {
                 AppSettings.CurrentVersion => settings,
-                1 => MigrateVersion1(settings),
+                2 => MigrateVersion2(settings),
+                1 => MigrateVersion2(MigrateVersion1(settings)),
                 _ => new AppSettings()
             };
         } catch(JsonException) {
@@ -63,8 +64,14 @@ public sealed class SettingsStore {
     }
 
     static AppSettings MigrateVersion1(AppSettings settings) {
-        settings.Version = AppSettings.CurrentVersion;
+        settings.Version = 2;
         settings.AdministratorAppSupport = true;
+        return settings;
+    }
+
+    static AppSettings MigrateVersion2(AppSettings settings) {
+        settings.Version = AppSettings.CurrentVersion;
+        settings.SwitchingMode = SwitchingMode.PrimaryLanguages;
         return settings;
     }
 }
