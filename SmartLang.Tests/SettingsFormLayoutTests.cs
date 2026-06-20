@@ -6,11 +6,11 @@ namespace SmartLang.Tests;
 public sealed class SettingsFormLayoutTests {
     [Fact]
     public void FooterShowsVersionAndBothButtons() {
-        using var form = new SettingsForm(SystemIcons.Application, "0.8.0");
+        using var form = new SettingsForm(SystemIcons.Application, "0.8.1");
         form.CreateControl();
         form.PerformLayout();
 
-        var version = FindControl(form, "SmartLang v0.8.0");
+        var version = FindControl(form, "SmartLang v0.8.1");
         var save = FindControl(form, "Save");
         var cancel = FindControl(form, "Cancel");
 
@@ -26,7 +26,7 @@ public sealed class SettingsFormLayoutTests {
 
     [Fact]
     public void RecentLanguageModeRelabelsPrimaryShortcutAndDisablesAllLayoutsShortcut() {
-        using var form = new SettingsForm(SystemIcons.Application, "0.8.0");
+        using var form = new SettingsForm(SystemIcons.Application, "0.8.1");
         form.LoadSettings(
             new AppSettings {
                 PrimaryLanguageTag = "en-US",

@@ -15,6 +15,8 @@ public sealed class KeyboardShortcutEngine {
     public const int VkRShift = 0xA1;
     public const int VkLControl = 0xA2;
     public const int VkRControl = 0xA3;
+    public const int VkLAlt = 0xA4;
+    public const int VkRAlt = 0xA5;
     public const int VkLWin = 0x5B;
     public const int VkRWin = 0x5C;
     public const int VkSpace = 0x20;
@@ -24,14 +26,16 @@ public sealed class KeyboardShortcutEngine {
     readonly HashSet<int> replayedModifiers = [];
     readonly HashSet<int> consumedKeys = [];
     readonly bool ctrlShiftEnabled;
+    readonly bool altShiftEnabled;
     readonly bool winSpaceEnabled;
     ShortcutKind? activeShortcutSession;
     int activeShortcutPressCount;
 
     public KeyboardShortcutEngine(IEnumerable<ShortcutKind>? enabledShortcuts = null) {
         var shortcuts = enabledShortcuts?.ToHashSet() ??
-            [ShortcutKind.CtrlShift, ShortcutKind.WinSpace];
+            [ShortcutKind.CtrlShift, ShortcutKind.AltShift, ShortcutKind.WinSpace];
         ctrlShiftEnabled = shortcuts.Contains(ShortcutKind.CtrlShift);
+        altShiftEnabled = shortcuts.Contains(ShortcutKind.AltShift);
         winSpaceEnabled = shortcuts.Contains(ShortcutKind.WinSpace);
     }
 
@@ -148,6 +152,17 @@ public sealed class KeyboardShortcutEngine {
             return TriggerShortcut(ShortcutKind.CtrlShift);
         }
 
+        if(altShiftEnabled && IsAltShiftBuffer()) {
+            foreach(var key in bufferedModifiers) {
+                if(key != virtualKey && physicallyDown.Contains(key)) {
+                    consumedKeys.Add(key);
+                }
+            }
+
+            bufferedModifiers.Clear();
+            return TriggerShortcut(ShortcutKind.AltShift);
+        }
+
         var replay = bufferedModifiers
             .Select(key => new SyntheticKeyEvent(key, true))
             .ToList();
@@ -205,9 +220,10 @@ public sealed class KeyboardShortcutEngine {
     bool BufferCanStillBecomeShortcut() {
         var hasWin = bufferedModifiers.Any(IsWin);
         var hasCtrl = bufferedModifiers.Any(IsControl);
+        var hasAlt = bufferedModifiers.Any(IsAlt);
         var hasShift = bufferedModifiers.Any(IsShift);
 
-        return hasWin ? !hasCtrl && !hasShift : hasCtrl || hasShift;
+        return hasWin ? !hasCtrl && !hasAlt && !hasShift : hasCtrl || hasAlt || hasShift;
     }
 
     bool IsWinOnlyBuffer() =>
@@ -217,6 +233,13 @@ public sealed class KeyboardShortcutEngine {
     bool IsCtrlShiftBuffer() =>
         bufferedModifiers.Any(IsControl) &&
         bufferedModifiers.Any(IsShift) &&
+        !bufferedModifiers.Any(IsAlt) &&
+        !bufferedModifiers.Any(IsWin);
+
+    bool IsAltShiftBuffer() =>
+        bufferedModifiers.Any(IsAlt) &&
+        bufferedModifiers.Any(IsShift) &&
+        !bufferedModifiers.Any(IsControl) &&
         !bufferedModifiers.Any(IsWin);
 
     void ResetShortcutSessionIfNoModifierIsHeld() {
@@ -228,9 +251,12 @@ public sealed class KeyboardShortcutEngine {
 
     bool IsWatchedModifier(int key) =>
         (ctrlShiftEnabled && (IsControl(key) || IsShift(key))) ||
+        (altShiftEnabled && (IsAlt(key) || IsShift(key))) ||
         (winSpaceEnabled && IsWin(key));
 
     static bool IsControl(int key) => key is VkLControl or VkRControl;
+
+    static bool IsAlt(int key) => key is VkLAlt or VkRAlt;
 
     static bool IsShift(int key) => key is VkLShift or VkRShift;
 

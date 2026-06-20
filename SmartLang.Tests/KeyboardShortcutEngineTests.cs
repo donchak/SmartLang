@@ -57,6 +57,44 @@ public sealed class KeyboardShortcutEngineTests {
         Assert.True(engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: false).Suppress);
     }
 
+    [Theory]
+    [InlineData(KeyboardShortcutEngine.VkLAlt, KeyboardShortcutEngine.VkLShift)]
+    [InlineData(KeyboardShortcutEngine.VkRAlt, KeyboardShortcutEngine.VkRShift)]
+    [InlineData(KeyboardShortcutEngine.VkLAlt, KeyboardShortcutEngine.VkRShift)]
+    public void AltShiftTriggersOnceWhenModifierIsReleased(int alt, int shift) {
+        var engine = new KeyboardShortcutEngine();
+
+        Assert.True(engine.Process(alt, isKeyDown: true).Suppress);
+        Assert.True(engine.Process(shift, isKeyDown: true).Suppress);
+
+        var trigger = engine.Process(shift, isKeyDown: false);
+        Assert.True(trigger.Suppress);
+        Assert.Equal(ShortcutKind.AltShift, trigger.TriggeredShortcut);
+
+        var finalRelease = engine.Process(alt, isKeyDown: false);
+        Assert.True(finalRelease.Suppress);
+        Assert.Null(finalRelease.TriggeredShortcut);
+    }
+
+    [Theory]
+    [InlineData(KeyboardShortcutEngine.VkLAlt, KeyboardShortcutEngine.VkLShift)]
+    [InlineData(KeyboardShortcutEngine.VkRAlt, KeyboardShortcutEngine.VkRShift)]
+    public void ShiftCanTriggerRepeatedlyWhileAltRemainsHeld(int alt, int shift) {
+        var engine = new KeyboardShortcutEngine();
+
+        engine.Process(alt, isKeyDown: true);
+        engine.Process(shift, isKeyDown: true);
+        Assert.Equal(ShortcutKind.AltShift, engine.Process(shift, isKeyDown: false).TriggeredShortcut);
+
+        Assert.True(engine.Process(shift, isKeyDown: true).Suppress);
+        var secondTrigger = engine.Process(shift, isKeyDown: false);
+
+        Assert.True(secondTrigger.Suppress);
+        Assert.Equal(ShortcutKind.AltShift, secondTrigger.TriggeredShortcut);
+        Assert.Equal(2, secondTrigger.ShortcutPressCount);
+        Assert.True(engine.Process(alt, isKeyDown: false).Suppress);
+    }
+
     [Fact]
     public void CtrlShiftEscapeReplaysModifiersAndDoesNotTrigger() {
         const int vkEscape = 0x1B;
@@ -182,11 +220,23 @@ public sealed class KeyboardShortcutEngineTests {
         Assert.False(engine.Process(KeyboardShortcutEngine.VkLControl, isKeyDown: false).Suppress);
     }
 
+    [Fact]
+    public void DisabledAltShiftPassesThroughUnchanged() {
+        var engine = new KeyboardShortcutEngine([ShortcutKind.CtrlShift, ShortcutKind.WinSpace]);
+
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLAlt, isKeyDown: true).Suppress);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: true).Suppress);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLShift, isKeyDown: false).Suppress);
+        Assert.False(engine.Process(KeyboardShortcutEngine.VkLAlt, isKeyDown: false).Suppress);
+    }
+
     [Theory]
     [InlineData(KeyboardShortcutEngine.VkLShift)]
     [InlineData(KeyboardShortcutEngine.VkRShift)]
     [InlineData(KeyboardShortcutEngine.VkLControl)]
     [InlineData(KeyboardShortcutEngine.VkRControl)]
+    [InlineData(KeyboardShortcutEngine.VkLAlt)]
+    [InlineData(KeyboardShortcutEngine.VkRAlt)]
     [InlineData(KeyboardShortcutEngine.VkLWin)]
     [InlineData(KeyboardShortcutEngine.VkRWin)]
     public void SingleModifierTapIsReplayedAsDownAndUp(int modifier) {
@@ -229,6 +279,8 @@ public sealed class KeyboardShortcutEngineTests {
     [InlineData(KeyboardShortcutEngine.VkRShift)]
     [InlineData(KeyboardShortcutEngine.VkLControl)]
     [InlineData(KeyboardShortcutEngine.VkRControl)]
+    [InlineData(KeyboardShortcutEngine.VkLAlt)]
+    [InlineData(KeyboardShortcutEngine.VkRAlt)]
     [InlineData(KeyboardShortcutEngine.VkLWin)]
     [InlineData(KeyboardShortcutEngine.VkRWin)]
     public void PointerInputReplaysBufferedModifierBeforeClick(int modifier) {
@@ -291,6 +343,8 @@ public sealed class KeyboardShortcutEngineTests {
             KeyboardShortcutEngine.VkRShift,
             KeyboardShortcutEngine.VkLControl,
             KeyboardShortcutEngine.VkRControl,
+            KeyboardShortcutEngine.VkLAlt,
+            KeyboardShortcutEngine.VkRAlt,
             KeyboardShortcutEngine.VkLWin,
             KeyboardShortcutEngine.VkRWin
         ];
