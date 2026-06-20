@@ -98,7 +98,7 @@ The application icon source is
 ## Behavior
 
 - First launch opens Settings; later launches start in the tray.
-- `Ctrl+Shift` and `Win+Space` can be assigned to either primary-language
+- `Ctrl+Shift`, `Alt+Shift` and `Win+Space` can be assigned to either primary-language
   toggling or cycling all installed layouts.
 - Cycling all layouts can be set to `None`, leaving only the primary-language
   shortcut active.
