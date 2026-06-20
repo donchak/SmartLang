@@ -43,12 +43,14 @@ public sealed class SettingsForm: Form {
         var primaryShortcutOptions = new[]
         {
             new ShortcutOption(ShortcutKind.CtrlShift, "Ctrl + Shift"),
+            new ShortcutOption(ShortcutKind.AltShift, "Alt + Shift"),
             new ShortcutOption(ShortcutKind.WinSpace, "Win + Space")
         };
         var allLayoutsShortcutOptions = new[]
         {
             new ShortcutOption(ShortcutKind.None, "None"),
             new ShortcutOption(ShortcutKind.CtrlShift, "Ctrl + Shift"),
+            new ShortcutOption(ShortcutKind.AltShift, "Alt + Shift"),
             new ShortcutOption(ShortcutKind.WinSpace, "Win + Space")
         };
         switchingMode.DataSource = switchingModeOptions;
