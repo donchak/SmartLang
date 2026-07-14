@@ -103,6 +103,8 @@ The application icon source is
 - Cycling all layouts can be set to `None`, leaving only the primary-language
   shortcut active.
 - Closing Settings hides it. Use the tray menu's `Exit` command to stop the app.
+- The tray checks GitHub after startup and daily for a newer release, then links
+  to it from a Windows notification.
 - Settings are stored in `%LocalAppData%\SmartLang\settings.json`.
 - Administrator support is enabled by default for MSI installations.
 - A normal-integrity tray task and highest-privilege broker task start at
