@@ -96,13 +96,30 @@ public sealed class ScheduledTaskManager {
     }
 
     public void Stop(string? userSid = null) {
+        StopTasks(userSid, TrayTaskName, BrokerTaskName);
+    }
+
+    public void StopBroker(string? userSid = null) {
+        try {
+            StopTasks(userSid, BrokerTaskName);
+        } catch(Exception exception) when(
+              exception is COMException or FileNotFoundException or
+              InvalidOperationException or UnauthorizedAccessException) {
+            AppLog.Write($"Could not stop the broker task: {exception.Message}");
+        }
+    }
+
+    static void StopTasks(
+        string? userSid,
+        params Func<string, string>[] taskNameFactories) {
         userSid ??= WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine the current user SID.");
         dynamic service = CreateService();
         try {
             dynamic folder = service.GetFolder("\\SmartLang");
-            TryStop(folder, TrayTaskName(userSid));
-            TryStop(folder, BrokerTaskName(userSid));
+            foreach(var taskNameFactory in taskNameFactories) {
+                TryStop(folder, taskNameFactory(userSid));
+            }
         } catch(Exception exception) when(
               exception is COMException or FileNotFoundException) {
         } finally {

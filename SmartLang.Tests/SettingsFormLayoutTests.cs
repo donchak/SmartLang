@@ -49,6 +49,32 @@ public sealed class SettingsFormLayoutTests {
         Assert.False(allLayoutsShortcut.Enabled);
     }
 
+    [Fact]
+    public void AdministratorSupportButtonsAreVisibleAndInvokeHandlers() {
+        using var form = new SettingsForm(SystemIcons.Application, "0.9.0");
+        var restartRequested = false;
+        var shutdownRequested = false;
+        form.SetRestartAdministratorSupportHandler(() => restartRequested = true);
+        form.SetShutdownAdministratorSupportHandler(() => shutdownRequested = true);
+        form.Show();
+        form.PerformLayout();
+
+        var restart = Assert.IsType<Button>(FindControl(form, "Restart administrator support"));
+        var shutdown = Assert.IsType<Button>(FindControl(form, "Shutdown administrator support"));
+
+        AssertVisibleSize(restart);
+        AssertVisibleSize(shutdown);
+        AssertContainedByParent(restart);
+        AssertContainedByParent(shutdown);
+        Assert.Same(restart.Parent, shutdown.Parent);
+
+        restart.PerformClick();
+        shutdown.PerformClick();
+
+        Assert.True(restartRequested);
+        Assert.True(shutdownRequested);
+    }
+
     static Control FindControl(Control root, string text) {
         foreach(Control control in root.Controls) {
             if(control.Text == text) {

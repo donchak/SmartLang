@@ -14,6 +14,7 @@ internal sealed class BrokerApplicationContext: ApplicationContext {
     AppSettings settings;
     string? lastError;
     bool isExiting;
+    int stopScheduled;
 
     internal BrokerApplicationContext() {
         settings = settingsStore.Load();
@@ -54,7 +55,9 @@ internal sealed class BrokerApplicationContext: ApplicationContext {
     Task<BrokerResponse> HandleRequestAsync(
         BrokerRequest request,
         CancellationToken cancellationToken) =>
-        DispatchAsync(() => HandleRequest(request), cancellationToken);
+        request.Command == BrokerCommand.Stop
+            ? Task.FromResult(Stop(request))
+            : DispatchAsync(() => HandleRequest(request), cancellationToken);
 
     BrokerResponse HandleRequest(BrokerRequest request) {
         try {
@@ -114,14 +117,27 @@ internal sealed class BrokerApplicationContext: ApplicationContext {
     }
 
     BrokerResponse Stop(BrokerRequest request) {
-        runtime.Stop();
-        refreshTimer.Stop();
-        _ = Task.Delay(250).ContinueWith(
-            _ => Dispatch(() => {  if (!isExiting)  {   isExiting = true;   ExitThread();  } }),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-        return Success(request);
+        if(Interlocked.Exchange(ref stopScheduled, 1) == 0) {
+            AppLog.Write("SmartLang broker stop requested.");
+            Dispatch(() => {
+                runtime.Stop();
+                refreshTimer.Stop();
+            });
+            _ = ExitAfterStopResponseAsync();
+        }
+
+        return new BrokerResponse(
+            BrokerProtocol.CurrentVersion,
+            request.RequestId,
+            true,
+            new BrokerStatus(IsElevated: true, HooksActive: false, Version: Application.ProductVersion));
+    }
+
+    static async Task ExitAfterStopResponseAsync() {
+        await Task.Delay(500).ConfigureAwait(false);
+        AppLog.Write("SmartLang broker exiting after stop request.");
+        using var process = System.Diagnostics.Process.GetCurrentProcess();
+        process.Kill(entireProcessTree: true);
     }
 
     bool TryActivateHooks() {

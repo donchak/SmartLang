@@ -113,7 +113,12 @@ The application icon source is
   acquires the same ownership lease and supports normal applications.
 - Tray **Exit** stops both processes for the current session without removing
   sign-in configuration.
-- Settings include a broker health indicator and restart action.
+- Settings include a broker health indicator plus **Restart administrator
+  support** and **Shutdown administrator support** actions.
+- **Shutdown administrator support** stops the elevated broker for the current
+  tray session. Normal applications continue through the tray fallback.
+- **Restart administrator support** starts a fresh broker and restores support
+  for elevated applications.
 
 SmartLang uses a small native hook helper to activate the layout inside the
 foreground application's input thread. The tray remains unelevated; only the

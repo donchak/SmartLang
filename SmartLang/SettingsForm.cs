@@ -15,6 +15,7 @@ public sealed class SettingsForm: Form {
     IReadOnlyList<LanguageOption> languages = [];
     Func<AppSettings, string?>? saveRequested;
     Action? restartAdministratorSupport;
+    Action? shutdownAdministratorSupport;
     bool allowClose;
 
     public SettingsForm(Icon applicationIcon, string applicationVersion) {
@@ -25,7 +26,7 @@ public sealed class SettingsForm: Form {
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = true;
-        ClientSize = new Size(560, 428);
+        ClientSize = new Size(560, 466);
         MinimumSize = Size;
         MaximumSize = Size;
 
@@ -82,6 +83,21 @@ public sealed class SettingsForm: Form {
         restartAdministratorSupportButton.Click += (_, _) =>
             restartAdministratorSupport?.Invoke();
 
+        var shutdownAdministratorSupportButton = new Button {
+            Text = "Shutdown administrator support",
+            AutoSize = true
+        };
+        shutdownAdministratorSupportButton.Click += (_, _) =>
+            shutdownAdministratorSupport?.Invoke();
+
+        var administratorSupportButtons = new FlowLayoutPanel {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false
+        };
+        administratorSupportButtons.Controls.Add(restartAdministratorSupportButton);
+        administratorSupportButtons.Controls.Add(shutdownAdministratorSupportButton);
+
         var saveButton = new Button {
             Text = "Save",
             AutoSize = true
@@ -121,10 +137,11 @@ public sealed class SettingsForm: Form {
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        for(var row = 0; row < 8; row++) {
+        for(var row = 0; row < 7; row++) {
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         }
 
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
@@ -138,7 +155,7 @@ public sealed class SettingsForm: Form {
         layout.Controls.Add(administratorAppSupport, 0, 6);
         layout.SetColumnSpan(administratorAppSupport, 2);
         layout.Controls.Add(administratorStatus, 0, 7);
-        layout.Controls.Add(restartAdministratorSupportButton, 1, 7);
+        layout.Controls.Add(administratorSupportButtons, 1, 7);
         layout.Controls.Add(status, 0, 8);
         layout.SetColumnSpan(status, 2);
         layout.Controls.Add(version, 0, 9);
@@ -154,6 +171,10 @@ public sealed class SettingsForm: Form {
 
     public void SetRestartAdministratorSupportHandler(Action restartRequested) {
         restartAdministratorSupport = restartRequested;
+    }
+
+    public void SetShutdownAdministratorSupportHandler(Action shutdownRequested) {
+        shutdownAdministratorSupport = shutdownRequested;
     }
 
     public void LoadSettings(

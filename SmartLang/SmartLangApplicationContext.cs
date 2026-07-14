@@ -25,6 +25,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
     SettingsForm? settingsForm;
     bool isExiting;
     bool brokerCheckInProgress;
+    bool administratorSupportShutdown;
     bool updateCheckInProgress;
     string? notifiedUpdateVersion;
     Uri? notificationLink;
@@ -153,6 +154,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         var form = new SettingsForm(applicationIcon, Application.ProductVersion);
         form.SetSaveHandler(SaveSettings);
         form.SetRestartAdministratorSupportHandler(async () => await RestartAdministratorSupportAsync());
+        form.SetShutdownAdministratorSupportHandler(async () => await ShutdownAdministratorSupportAsync());
         form.SetAdministratorSupportStatus(administratorStatus, administratorStatusIsError);
         return form;
     }
@@ -173,6 +175,10 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
 
         var previousAdministratorSupport = this.settings.AdministratorAppSupport;
         this.settings = settings.Copy();
+        if(previousAdministratorSupport != this.settings.AdministratorAppSupport) {
+            administratorSupportShutdown = false;
+        }
+
         _ = ApplySettingsAsync(previousAdministratorSupport);
         return null;
     }
@@ -209,6 +215,10 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
                 return;
             }
 
+            if(UseShutdownFallbackIfRequested()) {
+                return;
+            }
+
             if(!ProcessSecurity.IsProtectedInstallation(AppContext.BaseDirectory)) {
                 UseFallback("Administrator support requires installation under Program Files.");
                 return;
@@ -226,6 +236,10 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
                 }
             }
 
+            if(UseShutdownFallbackIfRequested()) {
+                return;
+            }
+
             if(response is null) {
                 UseFallback("Administrator support is unavailable; normal applications still work.");
                 return;
@@ -239,12 +253,18 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
             if(!response.Status.HooksActive) {
                 StopFallback();
                 response = await TrySendAsync(BrokerCommand.ActivateHooks);
+                if(UseShutdownFallbackIfRequested()) {
+                    return;
+                }
             }
 
             if(response is { Success: true, Status.HooksActive: true }) {
                 StopFallback();
                 if(startIfMissing) {
                     await TrySendAsync(BrokerCommand.ConfigureStartup, settings);
+                    if(UseShutdownFallbackIfRequested()) {
+                        return;
+                    }
                 }
 
                 SetAdministratorStatus("Administrator application support is active.", isError: false);
@@ -266,12 +286,50 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
             return;
         }
 
+        administratorSupportShutdown = false;
+        healthTimer.Stop();
         SetAdministratorStatus("Restarting administrator application support...", isError: false);
+        await TrySendAsync(BrokerCommand.Stop);
+        taskManager.StopBroker();
+        await Task.Delay(750);
+        if(isExiting) {
+            return;
+        }
+
         if(!taskManager.RunBroker()) {
             TryLaunchBrokerElevated();
         }
 
         await EvaluateBrokerAsync(startIfMissing: true);
+        healthTimer.Start();
+    }
+
+    async Task ShutdownAdministratorSupportAsync() {
+        if(!settings.AdministratorAppSupport) {
+            SetAdministratorStatus("Administrator support is disabled in settings.", isError: false);
+            return;
+        }
+
+        administratorSupportShutdown = true;
+        healthTimer.Stop();
+        SetAdministratorStatus("Shutting down administrator application support...", isError: false);
+        await TrySendAsync(BrokerCommand.Stop);
+        taskManager.StopBroker();
+        if(isExiting) {
+            return;
+        }
+
+        UseShutdownFallbackIfRequested();
+        healthTimer.Start();
+    }
+
+    bool UseShutdownFallbackIfRequested() {
+        if(!administratorSupportShutdown) {
+            return false;
+        }
+
+        UseFallback("Administrator support has been shut down.");
+        return true;
     }
 
     void TryLaunchBrokerElevated() {
@@ -418,6 +476,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         StopFallback();
         if(settings.AdministratorAppSupport) {
             await TrySendAsync(BrokerCommand.Stop);
+            taskManager.StopBroker();
         }
 
         settingsForm?.AllowClose();
