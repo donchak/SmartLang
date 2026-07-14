@@ -103,6 +103,8 @@ The application icon source is
 - Cycling all layouts can be set to `None`, leaving only the primary-language
   shortcut active.
 - Closing Settings hides it. Use the tray menu's `Exit` command to stop the app.
+- The tray checks GitHub after startup and daily for a newer release, then links
+  to it from a Windows notification.
 - Settings are stored in `%LocalAppData%\SmartLang\settings.json`.
 - Administrator support is enabled by default for MSI installations.
 - A normal-integrity tray task and highest-privilege broker task start at
@@ -111,7 +113,12 @@ The application icon source is
   acquires the same ownership lease and supports normal applications.
 - Tray **Exit** stops both processes for the current session without removing
   sign-in configuration.
-- Settings include a broker health indicator and restart action.
+- Settings include a broker health indicator plus **Restart administrator
+  support** and **Shutdown administrator support** actions.
+- **Shutdown administrator support** stops the elevated broker for the current
+  tray session. Normal applications continue through the tray fallback.
+- **Restart administrator support** starts a fresh broker and restores support
+  for elevated applications.
 
 SmartLang uses a small native hook helper to activate the layout inside the
 foreground application's input thread. The tray remains unelevated; only the

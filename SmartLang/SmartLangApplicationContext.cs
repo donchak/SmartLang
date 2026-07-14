@@ -14,13 +14,21 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
     readonly NotifyIcon notifyIcon;
     readonly System.Windows.Forms.Timer healthTimer;
     readonly System.Windows.Forms.Timer hookRefreshTimer;
+    readonly System.Windows.Forms.Timer updateCheckTimer;
     readonly HookRuntimeController fallbackRuntime;
     readonly BrokerClient brokerClient;
+    readonly HttpClient updateHttpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
+    readonly CancellationTokenSource shutdown = new();
+    readonly ReleaseUpdateChecker updateChecker;
 
     AppSettings settings;
     SettingsForm? settingsForm;
     bool isExiting;
     bool brokerCheckInProgress;
+    bool administratorSupportShutdown;
+    bool updateCheckInProgress;
+    string? notifiedUpdateVersion;
+    Uri? notificationLink;
     string administratorStatus = "Administrator support has not been checked.";
     bool administratorStatusIsError;
 
@@ -47,6 +55,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
             Visible = true
         };
         notifyIcon.DoubleClick += (_, _) => OpenSettings();
+        notifyIcon.BalloonTipClicked += (_, _) => OpenNotificationLink();
 
         fallbackRuntime = new HookRuntimeController(
             Dispatch,
@@ -54,29 +63,47 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         brokerClient = new BrokerClient(
             Path.Combine(AppContext.BaseDirectory, "SmartLang.Broker.exe"),
             Application.ProductVersion);
+        updateChecker = new ReleaseUpdateChecker(updateHttpClient);
 
         healthTimer = new System.Windows.Forms.Timer { Interval = 3_000 };
         healthTimer.Tick += async (_, _) => await EvaluateBrokerAsync(startIfMissing: false);
         hookRefreshTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
         hookRefreshTimer.Tick += (_, _) => fallbackRuntime.Refresh();
+        updateCheckTimer = new System.Windows.Forms.Timer {
+            Interval = (int)TimeSpan.FromDays(1).TotalMilliseconds
+        };
+        updateCheckTimer.Tick += async (_, _) => await CheckForUpdatesAsync();
 
         dispatcher.CreateControl();
         this.singleInstance.StartListening(() => Dispatch(OpenSettings));
-        dispatcher.BeginInvoke(async () => await InitializeAsync());
+        dispatcher.BeginInvoke(async () => {
+            await InitializeAsync();
+            if(isExiting) {
+                return;
+            }
+
+            updateCheckTimer.Start();
+            await CheckForUpdatesAsync();
+        });
     }
 
     protected override void Dispose(bool disposing) {
         if(disposing) {
+            shutdown.Cancel();
             healthTimer.Stop();
             healthTimer.Dispose();
             hookRefreshTimer.Stop();
             hookRefreshTimer.Dispose();
+            updateCheckTimer.Stop();
+            updateCheckTimer.Dispose();
             fallbackRuntime.Dispose();
             settingsForm?.Dispose();
             notifyIcon.ContextMenuStrip?.Dispose();
             notifyIcon.Dispose();
             applicationIcon.Dispose();
             dispatcher.Dispose();
+            updateHttpClient.Dispose();
+            shutdown.Dispose();
         }
 
         base.Dispose(disposing);
@@ -127,6 +154,7 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         var form = new SettingsForm(applicationIcon, Application.ProductVersion);
         form.SetSaveHandler(SaveSettings);
         form.SetRestartAdministratorSupportHandler(async () => await RestartAdministratorSupportAsync());
+        form.SetShutdownAdministratorSupportHandler(async () => await ShutdownAdministratorSupportAsync());
         form.SetAdministratorSupportStatus(administratorStatus, administratorStatusIsError);
         return form;
     }
@@ -147,6 +175,10 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
 
         var previousAdministratorSupport = this.settings.AdministratorAppSupport;
         this.settings = settings.Copy();
+        if(previousAdministratorSupport != this.settings.AdministratorAppSupport) {
+            administratorSupportShutdown = false;
+        }
+
         _ = ApplySettingsAsync(previousAdministratorSupport);
         return null;
     }
@@ -183,6 +215,10 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
                 return;
             }
 
+            if(UseShutdownFallbackIfRequested()) {
+                return;
+            }
+
             if(!ProcessSecurity.IsProtectedInstallation(AppContext.BaseDirectory)) {
                 UseFallback("Administrator support requires installation under Program Files.");
                 return;
@@ -200,6 +236,10 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
                 }
             }
 
+            if(UseShutdownFallbackIfRequested()) {
+                return;
+            }
+
             if(response is null) {
                 UseFallback("Administrator support is unavailable; normal applications still work.");
                 return;
@@ -213,12 +253,18 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
             if(!response.Status.HooksActive) {
                 StopFallback();
                 response = await TrySendAsync(BrokerCommand.ActivateHooks);
+                if(UseShutdownFallbackIfRequested()) {
+                    return;
+                }
             }
 
             if(response is { Success: true, Status.HooksActive: true }) {
                 StopFallback();
                 if(startIfMissing) {
                     await TrySendAsync(BrokerCommand.ConfigureStartup, settings);
+                    if(UseShutdownFallbackIfRequested()) {
+                        return;
+                    }
                 }
 
                 SetAdministratorStatus("Administrator application support is active.", isError: false);
@@ -240,12 +286,50 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
             return;
         }
 
+        administratorSupportShutdown = false;
+        healthTimer.Stop();
         SetAdministratorStatus("Restarting administrator application support...", isError: false);
+        await TrySendAsync(BrokerCommand.Stop);
+        taskManager.StopBroker();
+        await Task.Delay(750);
+        if(isExiting) {
+            return;
+        }
+
         if(!taskManager.RunBroker()) {
             TryLaunchBrokerElevated();
         }
 
         await EvaluateBrokerAsync(startIfMissing: true);
+        healthTimer.Start();
+    }
+
+    async Task ShutdownAdministratorSupportAsync() {
+        if(!settings.AdministratorAppSupport) {
+            SetAdministratorStatus("Administrator support is disabled in settings.", isError: false);
+            return;
+        }
+
+        administratorSupportShutdown = true;
+        healthTimer.Stop();
+        SetAdministratorStatus("Shutting down administrator application support...", isError: false);
+        await TrySendAsync(BrokerCommand.Stop);
+        taskManager.StopBroker();
+        if(isExiting) {
+            return;
+        }
+
+        UseShutdownFallbackIfRequested();
+        healthTimer.Start();
+    }
+
+    bool UseShutdownFallbackIfRequested() {
+        if(!administratorSupportShutdown) {
+            return false;
+        }
+
+        UseFallback("Administrator support has been shut down.");
+        return true;
     }
 
     void TryLaunchBrokerElevated() {
@@ -309,6 +393,35 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
     string? GetValidationMessage() =>
         SettingsValidator.Validate(settings, languageCatalog.GetLanguageOptions());
 
+    async Task CheckForUpdatesAsync() {
+        if(isExiting || updateCheckInProgress) {
+            return;
+        }
+
+        updateCheckInProgress = true;
+        try {
+            var update = await updateChecker.CheckAsync(Application.ProductVersion, shutdown.Token);
+            if(update is null || update.Version == notifiedUpdateVersion || isExiting) {
+                return;
+            }
+
+            notifiedUpdateVersion = update.Version;
+            AppLog.Write($"SmartLang {update.Version} is available at {update.ReleasePage}.");
+            ShowNotification(
+                "SmartLang update available",
+                $"Version {update.Version} is available. Click to view the release.",
+                ToolTipIcon.Info,
+                update.ReleasePage);
+        } catch(OperationCanceledException) when(shutdown.IsCancellationRequested) {
+        } catch(Exception exception) when(
+              exception is HttpRequestException or OperationCanceledException or
+              InvalidDataException or System.Text.Json.JsonException) {
+            AppLog.Write($"Could not check for SmartLang updates: {exception.Message}");
+        } finally {
+            updateCheckInProgress = false;
+        }
+    }
+
     void SetAdministratorStatus(string status, bool isError) {
         administratorStatus = status;
         administratorStatusIsError = isError;
@@ -316,11 +429,28 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         settingsForm?.SetAdministratorSupportStatus(status, isError);
     }
 
-    void ShowNotification(string title, string text, ToolTipIcon icon) {
+    void ShowNotification(string title, string text, ToolTipIcon icon, Uri? link = null) {
+        notificationLink = link;
         notifyIcon.BalloonTipTitle = title;
         notifyIcon.BalloonTipText = text;
         notifyIcon.BalloonTipIcon = icon;
         notifyIcon.ShowBalloonTip(4000);
+    }
+
+    void OpenNotificationLink() {
+        if(notificationLink is null) {
+            return;
+        }
+
+        try {
+            Process.Start(new ProcessStartInfo {
+                FileName = notificationLink.AbsoluteUri,
+                UseShellExecute = true
+            });
+        } catch(Exception exception) when(
+              exception is Win32Exception or InvalidOperationException) {
+            AppLog.Write($"Could not open the SmartLang release page: {exception.Message}");
+        }
     }
 
     void Dispatch(Action action) {
@@ -340,10 +470,13 @@ public sealed class SmartLangApplicationContext: ApplicationContext {
         }
 
         isExiting = true;
+        shutdown.Cancel();
         healthTimer.Stop();
+        updateCheckTimer.Stop();
         StopFallback();
         if(settings.AdministratorAppSupport) {
             await TrySendAsync(BrokerCommand.Stop);
+            taskManager.StopBroker();
         }
 
         settingsForm?.AllowClose();
